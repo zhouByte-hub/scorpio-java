@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.zhoubyte</groupId>
+        <artifactId>java-ai</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>spring-ai-alibaba-demo</artifactId>
+    <packaging>pom</packaging>
+    <name>spring-ai-alibaba-demo</name>
+    <description>Spring AI Alibaba Demo</description>
+
+    <properties>
+        <java.version>17</java.version>
+    </properties>
+
+    <modules>
+        <module>alibaba-core</module>
+        <module>alibaba-graph</module>
+        <module>alibaba-mcp-client</module>
+        <module>alibaba-mcp-server</module>
+    </modules>
+
+</project>

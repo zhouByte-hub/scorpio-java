@@ -1,0 +1,37 @@
+server:
+  port: 8081
+  servlet:
+    context-path: /alibaba-ai
+    encoding:
+      charset: UTF-8
+      force: true
+      enabled: true
+
+spring:
+  application:
+    name: spring-ai-alibaba
+    group: ai
+  ai:
+    ollama:
+      base-url: http://localhost:11434
+      chat:
+        options:
+          model: qwen3:0.6b
+          temperature: 0.8
+      embedding:
+        options:
+          model: qwen3-embedding:0.6b
+    vectorstore:
+      pgvector:
+        dimensions: 1024
+        distance-type: cosine_distance
+        initialize-schema: true
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://175.178.42.153:5432/postgres?serverTimezone=Asia/Shanghai
+    username: postgres
+    password: 
+    hikari:
+      connection-timeout: 30000
+      maximum-pool-size: 32
+
