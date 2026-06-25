@@ -1,12 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="Encoding">
+    <file url="file://$PROJECT_DIR$/java-ai/langchain4j-demo/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/java-ai/langgraph-demo/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/java-ai/pageindex-demo/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/java-ai/spring-ai-alibaba-demo/alibaba-core/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/java-ai/spring-ai-alibaba-demo/alibaba-graph/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/java-ai/spring-ai-alibaba-demo/alibaba-mcp-client/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/java-ai/spring-ai-alibaba-demo/alibaba-mcp-server/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/java-ai/spring-ai-alibaba-demo/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/java-ai/spring-ai-alibaba-demo/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/java-ai/spring-ai-demo/mcp-client/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/java-ai/spring-ai-demo/mcp-server/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/java-ai/spring-ai-demo/spring-ai-core/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/java-ai/spring-ai-demo/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/java-ai/spring-ai-demo/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/java-ai/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/java-ai/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/scorpio-classload/classload-core/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/scorpio-classload/classload-core/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/scorpio-classload/jarclassload/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/scorpio-classload/jarclassload/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/scorpio-classload/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/scorpio-classload/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/scorpio-proxy/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/scorpio-proxy/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/src/main/resources" charset="UTF-8" />
   </component>
