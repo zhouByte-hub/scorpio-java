@@ -1,0 +1,9 @@
+cglib_proxy/CglibProxyLaunch.class
+jdk_proxy/interfaces/JdkProxyInterface.class
+jdk_proxy/entity/UserProxy.class
+cglib_proxy/CglibMethodInterceptor.class
+jdk_proxy/AdvancedInvocationHandler.class
+cglib_proxy/ProxyFactory.class
+cglib_proxy/service/UserService.class
+jdk_proxy/JdkProxyLaunch.class
+cglib_proxy/entity/UserEntity.class
