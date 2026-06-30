@@ -5,15 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="ff1ee9ca-7d13-4a76-b46b-e052d15a750b" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/scorpio-proxy/src/main/java/cglib_proxy/CglibMethodInterceptor.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scorpio-proxy/src/main/java/cglib_proxy/CglibProxyLaunch.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scorpio-proxy/src/main/java/cglib_proxy/ProxyFactory.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scorpio-proxy/src/main/java/cglib_proxy/entity/UserEntity.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scorpio-proxy/src/main/java/cglib_proxy/service/UserService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scorpio-classload/classload-core/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/scorpio-classload/classload-core/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scorpio-classload/jarclassload/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/scorpio-classload/jarclassload/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scorpio-classload/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/scorpio-classload/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scorpio-proxy/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/scorpio-proxy/pom.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/scorpio-proxy/src/main/resources/descriptions.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -261,7 +253,7 @@
       <updated>1757903438119</updated>
       <workItem from="1782265500441" duration="15564000" />
       <workItem from="1782351052486" duration="7748000" />
-      <workItem from="1782360485610" duration="20837000" />
+      <workItem from="1782360485610" duration="21228000" />
     </task>
     <servers />
   </component>
