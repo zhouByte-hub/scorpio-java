@@ -12,6 +12,7 @@
         <module>scorpio-classload</module>
         <module>scorpio-proxy</module>
         <module>java-ai</module>
+        <module>scorpio-cloud-stream</module>
     </modules>
 
     <properties>
