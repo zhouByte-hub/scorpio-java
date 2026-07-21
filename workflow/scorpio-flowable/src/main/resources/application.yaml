@@ -1,0 +1,23 @@
+server:
+  port: 9527
+  servlet:
+    context-path: /api
+spring:
+  application:
+    name: scorpio-flowable
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: root
+    password: 123456
+    url: jdbc:mysql://localhost:13306/scorpio_flowable?serverTimezone=Asia/Shanghai
+flowable:
+  database-schema-update: true
+  async-executor-activate: true
+  idm:
+    enabled: true
+    app:
+      admin:
+        user-id: admin
+        password: 123123
+        first-name: Zhou
+        last-name: byte

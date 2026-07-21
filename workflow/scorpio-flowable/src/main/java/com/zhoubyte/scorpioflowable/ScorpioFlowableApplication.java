@@ -1,13 +1,13 @@
-package com.zhoubyte.scorpionetty;
+package com.zhoubyte.scorpioflowable;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class ScorpioNettyApplication {
+public class ScorpioFlowableApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(ScorpioNettyApplication.class, args);
+        SpringApplication.run(ScorpioFlowableApplication.class, args);
     }
 
 }
