@@ -32,6 +32,11 @@
             <version>${mysql.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+        </dependency>
+
         <!-- Flowable的基础依赖-->
         <dependency>
             <groupId>org.flowable</groupId>
@@ -40,16 +45,16 @@
         </dependency>
 
         <!-- Flowable BPMN UI-->
-        <dependency>
-            <groupId>org.flowable</groupId>
-            <artifactId>flowable-spring-boot-starter-ui-idm</artifactId>
-            <version>${flowable.ui.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.flowable</groupId>
-            <artifactId>flowable-spring-boot-starter-ui-modeler</artifactId>
-            <version>${flowable.ui.version}</version>
-        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>org.flowable</groupId>-->
+<!--            <artifactId>flowable-spring-boot-starter-ui-idm</artifactId>-->
+<!--            <version>${flowable.ui.version}</version>-->
+<!--        </dependency>-->
+<!--        <dependency>-->
+<!--            <groupId>org.flowable</groupId>-->
+<!--            <artifactId>flowable-spring-boot-starter-ui-modeler</artifactId>-->
+<!--            <version>${flowable.ui.version}</version>-->
+<!--        </dependency>-->
     </dependencies>
 
     <build>
