@@ -16,8 +16,8 @@
 
     <properties>
         <java.version>25</java.version>
-        <flowable.version>7.0.0</flowable.version>
-        <flowable.ui.version>6.7.2</flowable.ui.version>
+        <flowable.version>8.0.0</flowable.version>
+<!--        <flowable.ui.version>6.7.2</flowable.ui.version>-->
         <mysql.version>8.3.0</mysql.version>
     </properties>
     <dependencies>

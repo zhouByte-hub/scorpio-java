@@ -14,13 +14,14 @@ import org.springframework.stereotype.Component;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.stream.Stream;
 
 @Component
 @Slf4j
 public class DeployBPMN implements ApplicationRunner {
 
-    private final static String BPMN_XML_FILE = ".xml";
+    private final static String BPMN_XML_FILE = ".bpmn20.xml";
     private final static String BPMN_PARENT_FILE_NAME = "bpmn/";
 
     @Resource
@@ -36,16 +37,30 @@ public class DeployBPMN implements ApplicationRunner {
             return ;
         }
         Path bpmnPath = Path.of(bpmn.toURI());
-        try(Stream<Path> walk = Files.walk(bpmnPath)){
-            walk.filter(path -> path.endsWith(BPMN_XML_FILE)).forEach(item -> {
+        try (Stream<Path> walk = Files.walk(bpmnPath)) {
+            // 收集所有 BPMN 文件
+            List<Path> bpmnFiles = walk
+                    .filter(path -> path.getFileName().toString().endsWith(BPMN_XML_FILE))
+                    .toList();
+
+            if (bpmnFiles.isEmpty()) {
+                log.warn("未找到 BPMN 流程文件");
+                return;
+            }
+
+            // 批量部署
+            DeploymentBuilder builder = repositoryService.createDeployment()
+                    .name("bpmn-deployment-" + System.currentTimeMillis());
+
+            for (Path item : bpmnFiles) {
                 String relativePath = BPMN_PARENT_FILE_NAME + item.getFileName().toString();
-                repositoryService.createDeployment()
-                        .addClasspathResource(relativePath)
-                        .name(item.getFileName().toString())
-                        .deploy();
-                log.info("deployed: {}", relativePath);
-            });
+                builder.addClasspathResource(relativePath);
+            }
+
+            Deployment deploy = builder.deploy();
+            log.info("批量部署完成，共 {} 个流程文件，deploymentId: {}", bpmnFiles.size(), deploy.getId());
         } catch (Exception e) {
+            log.error("部署 BPMN 文件失败", e);
             throw new RuntimeException(e);
         }
     }
