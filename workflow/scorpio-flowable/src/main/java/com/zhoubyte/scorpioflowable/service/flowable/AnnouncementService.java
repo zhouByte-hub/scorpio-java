@@ -1,4 +1,4 @@
-package com.zhoubyte.scorpioflowable.service;
+package com.zhoubyte.scorpioflowable.service.flowable;
 
 import lombok.extern.slf4j.Slf4j;
 import org.flowable.engine.delegate.DelegateExecution;
@@ -32,7 +32,7 @@ import org.flowable.engine.delegate.JavaDelegate;
  * <p>BPMN 配置示例：
  * <pre>{@code
  * <serviceTask id="announcement" name="公司公告"
- *              flowable:class="com.zhoubyte.scorpioflowable.service.AnnouncementService">
+ *              flowable:class="com.zhoubyte.scorpioflowable.service.flowable.AnnouncementService">
  * </serviceTask>
  * }</pre>
  *

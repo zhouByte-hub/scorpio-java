@@ -17,7 +17,7 @@
       <conditionExpression xsi:type="tFormalExpression"><![CDATA[days>=3]]></conditionExpression>
     </sequenceFlow>
     <sequenceFlow id="sid-1D4AD094-67BD-4FE4-9E1D-DF3C789C6D06" sourceRef="sid-F7FBD2C8-026B-4915-B515-4850C5209552" targetRef="sid-FEA6CF48-A3F4-406D-AD2A-C16FFB0F55C4"></sequenceFlow>
-    <serviceTask id="sid-FEA6CF48-A3F4-406D-AD2A-C16FFB0F55C4" name="公司公告" flowable:class="com.zhoubyte.scorpioflowable.service.AnnouncementService"></serviceTask>
+    <serviceTask id="sid-FEA6CF48-A3F4-406D-AD2A-C16FFB0F55C4" name="公司公告" flowable:class="com.zhoubyte.scorpioflowable.service.flowable.AnnouncementService"></serviceTask>
     <sequenceFlow id="sid-4206DCDA-1DB2-4E7C-9F96-B3072DB5BA87" sourceRef="sid-9C390E8B-A14A-40F6-BB50-19843D292029" targetRef="sid-FEA6CF48-A3F4-406D-AD2A-C16FFB0F55C4"></sequenceFlow>
     <endEvent id="sid-7141A047-7D45-4CAA-965C-85BFCA41F3D9"></endEvent>
     <sequenceFlow id="sid-25B3551E-0CE4-46BB-9039-29AF5D351CD3" sourceRef="sid-FEA6CF48-A3F4-406D-AD2A-C16FFB0F55C4" targetRef="sid-7141A047-7D45-4CAA-965C-85BFCA41F3D9"></sequenceFlow>
