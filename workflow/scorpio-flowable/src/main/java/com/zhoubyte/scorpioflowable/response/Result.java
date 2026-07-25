@@ -19,4 +19,8 @@ public class Result<T> {
     public static <T> Result<T> success(T data) {
         return new Result<>(HttpStatus.OK.value(), data, "success");
     }
+
+    public static Result<String> error(String data) {
+        return new Result<>(HttpStatus.BAD_REQUEST.value(), data, "error");
+    }
 }

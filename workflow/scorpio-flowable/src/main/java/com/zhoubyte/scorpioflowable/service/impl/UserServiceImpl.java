@@ -3,7 +3,6 @@ package com.zhoubyte.scorpioflowable.service.impl;
 import com.zhoubyte.scorpioflowable.entity.UserEntity;
 import com.zhoubyte.scorpioflowable.request.UserLoginDto;
 import com.zhoubyte.scorpioflowable.service.UserService;
-import jakarta.annotation.Resource;
 import org.apache.commons.lang3.StringUtils;
 import org.flowable.engine.RuntimeService;
 import org.flowable.engine.runtime.ProcessInstance;
@@ -21,8 +20,11 @@ public class UserServiceImpl implements UserService {
     private final static String USER_LOGIN_FLOW_KEY = "USER_LOGIN";
     private final static DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    @Resource
-    private RuntimeService runtimeService;
+    private final RuntimeService runtimeService;
+
+    public UserServiceImpl(RuntimeService runtimeService) {
+        this.runtimeService = runtimeService;
+    }
 
     @Override
     public String userLogin(UserLoginDto userLoginDto) {
