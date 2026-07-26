@@ -1,8 +1,8 @@
 package com.zhoubyte.scorpioflowable.utils;
 
-import lombok.Getter;
-
-@Getter
+/**
+ * 性别枚举
+ */
 public enum SexEnum {
 
     WOMAN(0, "女"),
@@ -17,4 +17,11 @@ public enum SexEnum {
         this.label = label;
     }
 
+    public Integer getCode() {
+        return code;
+    }
+
+    public String getLabel() {
+        return label;
+    }
 }

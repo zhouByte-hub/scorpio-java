@@ -1,12 +1,12 @@
 package com.zhoubyte.scorpioflowable.config;
 
 import jakarta.annotation.Resource;
-import lombok.extern.slf4j.Slf4j;
 import org.flowable.engine.RepositoryService;
 import org.flowable.engine.repository.Deployment;
 import org.flowable.engine.repository.DeploymentBuilder;
 import org.flowable.engine.repository.ProcessDefinition;
-import org.jspecify.annotations.NonNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
@@ -24,9 +24,9 @@ import java.util.List;
 import java.util.stream.Stream;
 
 @Component
-@Slf4j
 public class DeployBPMN implements ApplicationRunner {
 
+    private static final Logger log = LoggerFactory.getLogger(DeployBPMN.class);
     private final static String BPMN_XML_FILE = ".bpmn20.xml";
     private final static String BPMN_PARENT_FILE_NAME = "bpmn/";
 
@@ -38,7 +38,7 @@ public class DeployBPMN implements ApplicationRunner {
 
 
     @Override
-    public void run(@NonNull ApplicationArguments args) throws Exception {
+    public void run(ApplicationArguments args) throws Exception {
         URL bpmn = this.getClass().getClassLoader().getResource("bpmn");
         if(bpmn == null) {
             log.warn("BPMN 文件目录为空，没有流程信息");

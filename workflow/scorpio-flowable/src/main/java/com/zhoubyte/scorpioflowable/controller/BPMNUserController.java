@@ -4,10 +4,11 @@ import com.zhoubyte.scorpioflowable.entity.UserEntity;
 import com.zhoubyte.scorpioflowable.request.UserGroupMembershipRequest;
 import com.zhoubyte.scorpioflowable.request.UserGroupRequest;
 import com.zhoubyte.scorpioflowable.response.Result;
-import lombok.extern.slf4j.Slf4j;
 import org.flowable.engine.IdentityService;
 import org.flowable.idm.api.Group;
 import org.flowable.idm.api.User;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,11 +18,11 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-@Slf4j
 @RestController
 @RequestMapping(value = "/identity")
 public class BPMNUserController {
 
+    private static final Logger log = LoggerFactory.getLogger(BPMNUserController.class);
     private final IdentityService identityService;
 
     public BPMNUserController(IdentityService identityService) {

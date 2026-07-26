@@ -1,8 +1,9 @@
 package com.zhoubyte.scorpioflowable.service.flowable;
 
-import lombok.extern.slf4j.Slf4j;
 import org.flowable.engine.delegate.DelegateExecution;
 import org.flowable.engine.delegate.JavaDelegate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * 公司公告服务任务实现类
@@ -39,8 +40,9 @@ import org.flowable.engine.delegate.JavaDelegate;
  * @see JavaDelegate
  * @see DelegateExecution
  */
-@Slf4j
 public class AnnouncementService implements JavaDelegate {
+
+    private static final Logger log = LoggerFactory.getLogger(AnnouncementService.class);
 
     /**
      * 执行公司公告服务任务

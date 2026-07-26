@@ -1,9 +1,10 @@
 package com.zhoubyte.scorpioflowable.response;
 
-import lombok.Data;
 import org.springframework.http.HttpStatus;
 
-@Data
+/**
+ * 统一响应结果类
+ */
 public class Result<T> {
 
     private int code;
@@ -22,5 +23,29 @@ public class Result<T> {
 
     public static Result<String> error(String data) {
         return new Result<>(HttpStatus.BAD_REQUEST.value(), data, "error");
+    }
+
+    public int getCode() {
+        return code;
+    }
+
+    public void setCode(int code) {
+        this.code = code;
+    }
+
+    public T getData() {
+        return data;
+    }
+
+    public void setData(T data) {
+        this.data = data;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
     }
 }

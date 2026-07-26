@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.zhoubyte.scorpioflowable.mapper.WorkflowMapper">
+
+    <!-- 流程实例与任务的一对多映射 -->
+    <resultMap id="workFlowResponseResultMap" type="com.zhoubyte.scorpioflowable.response.WorkFlowResponse">
+        <!-- 流程实例基本信息 -->
+        <id property="processId" column="processId"/>
+        <result property="processName" column="processName"/>
+        <result property="version" column="processVersion"/>
+        <result property="businessKey" column="businessKey"/>
+        <result property="startTime" column="startTime"/>
+        <result property="status" column="processState"/>
+
+        <!-- 任务列表（一对多关系） -->
+        <collection property="taskResponseList" ofType="com.zhoubyte.scorpioflowable.response.WorkFlowResponse$TaskResponse">
+            <id property="taskId" column="taskId"/>
+            <result property="status" column="taskState"/>
+            <result property="name" column="taskName"/>
+            <result property="assignee" column="assignee"/>
+            <result property="createTime" column="createTime"/>
+            <result property="claimTime" column="claimTime"/>
+        </collection>
+    </resultMap>
+
+    <!-- 查询当前用户的活跃工作流 -->
+    <select id="currentUserWorkflow" resultMap="workFlowResponseResultMap">
+        select
+            <!-- 流程实例字段 -->
+            ACT_HI_PROCINST.PROC_INST_ID_ as processId,
+            ACT_HI_PROCINST.NAME_ as processName,
+            ACT_HI_PROCINST.REV_ as processVersion,
+            ACT_HI_PROCINST.BUSINESS_KEY_ as businessKey,
+            DATE_FORMAT(ACT_HI_PROCINST.START_TIME_, '%Y-%m-%d %H:%i:%s') as startTime,
+            ACT_HI_PROCINST.STATE_ as processState,
+            <!-- 任务字段 -->
+            ACT_RU_TASK.ID_ as taskId,
+            ACT_RU_TASK.STATE_ as taskState,
+            ACT_RU_TASK.NAME_ as taskName,
+            ACT_RU_TASK.ASSIGNEE_ as assignee,
+            DATE_FORMAT(ACT_RU_TASK.CREATE_TIME_, '%Y-%m-%d %H:%i:%s') as createTime,
+            DATE_FORMAT(ACT_RU_TASK.CLAIM_TIME_, '%Y-%m-%d %H:%i:%s') as claimTime
+        from ACT_RU_TASK
+        LEFT JOIN ACT_HI_PROCINST ON ACT_RU_TASK.PROC_INST_ID_ = ACT_HI_PROCINST.PROC_INST_ID_
+        where
+            ACT_RU_TASK.ASSIGNEE_ = #{userId}
+          and ACT_RU_TASK.STATE_ NOT IN ('completed', 'claim')
+        order by ACT_RU_TASK.CREATE_TIME_ desc;
+    </select>
+
+</mapper>

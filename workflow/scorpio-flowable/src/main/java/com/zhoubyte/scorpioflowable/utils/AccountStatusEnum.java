@@ -1,8 +1,8 @@
 package com.zhoubyte.scorpioflowable.utils;
 
-import lombok.Getter;
-
-@Getter
+/**
+ * 账户状态枚举
+ */
 public enum AccountStatusEnum {
 
     ACTIVE,             // 正常

@@ -1,8 +1,9 @@
 package com.zhoubyte.scorpioflowable.service.impl;
 
+import com.zhoubyte.scorpioflowable.mapper.WorkflowMapper;
+import com.zhoubyte.scorpioflowable.response.WorkFlowResponse;
 import com.zhoubyte.scorpioflowable.service.BPMNService;
 import com.zhoubyte.scorpioflowable.utils.UserAuthUtils;
-import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.flowable.engine.RuntimeService;
 import org.flowable.engine.TaskService;
@@ -11,15 +12,30 @@ import org.flowable.idm.api.User;
 import org.flowable.task.api.Task;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
-@RequiredArgsConstructor
 public class BPMNServiceImpl implements BPMNService {
 
     private final TaskService taskService;
     private final RuntimeService runtimeService;
     private final UserAuthUtils userAuthUtils;
+    private final WorkflowMapper workflowMapper;
+
+    /**
+     * 构造函数注入依赖
+     */
+    public BPMNServiceImpl(TaskService taskService,
+                           RuntimeService runtimeService,
+                           UserAuthUtils userAuthUtils,
+                           WorkflowMapper workflowMapper) {
+        this.taskService = taskService;
+        this.runtimeService = runtimeService;
+        this.userAuthUtils = userAuthUtils;
+        this.workflowMapper = workflowMapper;
+    }
 
     /**
      * 根据执行实例ID查询流程变量
@@ -79,6 +95,27 @@ public class BPMNServiceImpl implements BPMNService {
     @Override
     public void unclaimTask(String taskId) {
         taskService.unclaim(taskId);
+    }
+
+    @Override
+    public List<WorkFlowResponse> currentActiveWorkflow() {
+        User user = userAuthUtils.currentUser();
+        if(user == null) {
+            throw new RuntimeException("当前用户没有登陆");
+        }
+        List<WorkFlowResponse> workFlowResponses = workflowMapper.currentUserWorkflow(user.getId());
+        workFlowResponses.forEach(process -> {
+            List<WorkFlowResponse.TaskResponse> taskResponseList = process.getTaskResponseList();
+            Map<String, Object> processParams = new HashMap<>();
+            if(taskResponseList != null && !taskResponseList.isEmpty()) {
+                taskResponseList.forEach(task -> {
+                    processParams.putAll(taskService.getVariables(task.getTaskId()));
+                    task.setParams(taskService.getVariablesLocal(task.getTaskId()));
+                });
+            }
+            process.setParams(processParams);
+        });
+        return workFlowResponses;
     }
 
 
