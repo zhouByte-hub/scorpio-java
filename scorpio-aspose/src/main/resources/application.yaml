@@ -1,0 +1,12 @@
+server:
+  port: 9527
+  servlet:
+    context-path: /aspose
+spring:
+  application:
+    name: scorpio-aspose
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+
