@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.aspose</groupId>
+    <artifactId>aspose-total</artifactId>
+    <version>26.6</version>
+	<packaging>pom</packaging>
+    <name>Aspose.Total for Java</name>
+	<description>
+        Aspose.Total provide the most complete and efficient set of document processing solution without any other software installation and dependencies. It has complete Set of File Format Manipulation APIs which allows to Manipulate Word, Excel, PDF, PowerPoint, Outlook and more than 100 other file formats using our native APIs for Java.
+    </description>
+
+	<url>https://releases.aspose.com/total/java/</url>
+
+	<issueManagement>
+        <url>https://forum.aspose.com/c/total</url>
+    </issueManagement>
+
+	<licenses>
+        <license>
+            <name>Aspose EULA</name>
+            <url>https://company.aspose.com/legal/eula</url>
+        </license>
+    </licenses>
+
+	<properties>
+		<release.version>26.6</release.version>
+	</properties>
+
+    <organization>
+        <name>Aspose Pty Ltd</name>
+        <url>https://www.aspose.com/</url>
+    </organization>
+
+    <dependencies>
+        <!--aspose.com dependencies start here.-->
+        <dependency>
+            <groupId>com.aspose</groupId>
+            <artifactId>aspose-3d</artifactId>
+            <version>26.6.0</version>
+            <classifier>jdk8</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.aspose</groupId>
+            <artifactId>aspose-barcode</artifactId>
+            <version>26.6</version>
+            <classifier>jdk18</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.aspose</groupId>
+            <artifactId>aspose-cad</artifactId>
+            <version>26.6</version>
+        </dependency>
+        <dependency>
+            <groupId>com.aspose</groupId>
+            <artifactId>aspose-cells</artifactId>
+            <version>26.6</version>
+        </dependency>
+        <dependency>
+            <groupId>com.aspose</groupId>
+            <artifactId>aspose-diagram</artifactId>
+            <version>26.6</version>
+        </dependency>
+        <dependency>
+            <groupId>com.aspose</groupId>
+            <artifactId>aspose-drawing</artifactId>
+            <version>26.6</version>
+        </dependency>
+        <dependency>
+            <groupId>com.aspose</groupId>
+            <artifactId>aspose-email</artifactId>
+            <version>26.5</version>
+            <classifier>jdk16</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.aspose</groupId>
+            <artifactId>aspose-font</artifactId>
+            <version>26.6</version>
+        </dependency>
+        <dependency>
+            <groupId>com.aspose</groupId>
+            <artifactId>aspose-html</artifactId>
+            <version>26.6</version>
+            <classifier>jdk25</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.aspose</groupId>
+            <artifactId>aspose-imaging</artifactId>
+            <version>26.6</version>
+            <classifier>jdk18</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.aspose</groupId>
+            <artifactId>aspose-note</artifactId>
+            <version>26.4</version>
+            <classifier>jdk17</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.aspose</groupId>
+            <artifactId>aspose-ocr</artifactId>
+            <version>26.5.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.aspose</groupId>
+            <artifactId>aspose-omr</artifactId>
+            <version>25.10</version>
+        </dependency>
+        <dependency>
+            <groupId>com.aspose</groupId>
+            <artifactId>aspose-page</artifactId>
+            <version>26.6</version>
+        </dependency>
+        <dependency>
+            <groupId>com.aspose</groupId>
+            <artifactId>aspose-pdf</artifactId>
+            <version>26.6</version>
+        </dependency>
+        <dependency>
+            <groupId>com.aspose</groupId>
+            <artifactId>aspose-psd</artifactId>
+            <version>26.6</version>
+            <classifier>jdk16</classifier>
+        </dependency>
+		<dependency>
+            <groupId>com.aspose</groupId>
+            <artifactId>aspose-pub</artifactId>
+            <version>22.8</version>
+        </dependency>
+        <dependency>
+            <groupId>com.aspose</groupId>
+            <artifactId>aspose-slides</artifactId>
+            <version>26.6</version>
+            <classifier>jdk16</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.aspose</groupId>
+            <artifactId>aspose-tasks</artifactId>
+            <version>26.6</version>
+            <classifier>jdk18</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.aspose</groupId>
+            <artifactId>aspose-tex</artifactId>
+            <version>26.6</version>
+        </dependency>
+        <dependency>
+            <groupId>com.aspose</groupId>
+            <artifactId>aspose-words</artifactId>
+            <version>26.6</version>
+            <classifier>jdk17</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.aspose</groupId>
+            <artifactId>aspose-zip</artifactId>
+            <version>26.3</version>
+            <classifier>jdk18</classifier>
+        </dependency>
+        <!--aspose.com dependencies end here.-->
+    </dependencies>
+
+    <repositories>
+        <repository>
+            <id>AsposeJavaAPI</id>
+            <name>Aspose Java API</name>
+            <url>https://releases.aspose.com/java/repo/</url>
+        </repository>
+    </repositories>
+</project>

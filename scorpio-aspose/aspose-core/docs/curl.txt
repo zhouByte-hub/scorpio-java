@@ -1,0 +1,20 @@
+curl -L -X POST 'http://localhost:9527/aspose/word/detect/fill_bookmark?path=/Users/zhoubyte/project/java/scorpio-java/scorpio-aspose/src/main/resources/docx/a6c7b7292f75421b82dc81d95e62dc7d/a6c7b7292f75421b82dc81d95e62dc7d.docx' \
+-H 'Content-Type: application/json' \
+-d '{
+  "name": "张三",
+  "position": "Java开发工程师",
+  "department": "技术部",
+  "reportLeader": "李四",
+  "workAddress": "北京市朝阳区望京SOHO塔1A座15层",
+  "entryDate": "2026-08-01",
+  "contractYear": "3",
+  "probationMonth": 3,
+  "probationSalary": 16000.0,
+  "formalSalary": 20000.0,
+  "salaryDay": 15,
+  "offerDeadline": "2026-07-30",
+  "hrName": "王五",
+  "companyAddress": "北京市朝阳区望京SOHO塔1A座15层",
+  "companyName": "北京某某科技有限公司",
+  "sealDate": "2026-07-26"
+}'
