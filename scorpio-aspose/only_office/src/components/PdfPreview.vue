@@ -113,12 +113,6 @@ function nextPage() {
   }
 }
 
-function handleJump(value: number | undefined) {
-  if (!value || !totalPages.value) return
-  currentPage.value = Math.min(Math.max(1, value), totalPages.value)
-  jumpPage.value = currentPage.value
-}
-
 function fitWidth() {
   const width = containerRef.value?.clientWidth ?? 1000
   pageWidth.value = Math.max(minWidth, Math.min(maxWidth, width - 24))
