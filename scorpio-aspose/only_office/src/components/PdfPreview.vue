@@ -2,30 +2,34 @@
   <div class="pdf-preview">
     <div class="pdf-toolbar">
       <el-button-group>
-        <el-button :icon="ZoomOut" @click="zoomOut" :disabled="scale <= 0.5">缩小</el-button>
-        <el-button class="scale-display">{{ Math.round(scale * 100) }}%</el-button>
-        <el-button :icon="ZoomIn" @click="zoomIn" :disabled="scale >= 3">放大</el-button>
+        <el-button :icon="ZoomOut" :disabled="pageWidth <= minWidth" @click="zoomOut">缩小</el-button>
+        <el-button class="scale-display">{{ Math.round(zoomPercent) }}%</el-button>
+        <el-button :icon="ZoomIn" :disabled="pageWidth >= maxWidth" @click="zoomIn">放大</el-button>
       </el-button-group>
       <el-button-group class="ml-12">
-        <el-button :icon="ArrowLeft" @click="prevPage" :disabled="currentPage <= 1">上一页</el-button>
-        <el-button class="page-display">{{ currentPage }} / {{ totalPages }}</el-button>
-        <el-button :icon="ArrowRight" @click="nextPage" :disabled="currentPage >= totalPages">下一页</el-button>
+        <el-button :icon="ArrowLeft" :disabled="currentPage <= 1" @click="prevPage">上一页</el-button>
+        <el-button class="page-display">{{ currentPage }} / {{ totalPages || '-' }}</el-button>
+        <el-button :icon="ArrowRight" :disabled="currentPage >= totalPages" @click="nextPage">下一页</el-button>
       </el-button-group>
-      <el-input
-        v-model="searchTerm"
-        placeholder="搜索文档内容"
-        class="search-input ml-12"
-        :prefix-icon="Search"
-        clearable
-        @keyup.enter="handleSearch"
-      />
+<!--      <el-input-number-->
+<!--        v-model="jumpPage"-->
+<!--        class="jump-input ml-12"-->
+<!--        :min="1"-->
+<!--        :max="Math.max(totalPages, 1)"-->
+<!--        controls-position="right"-->
+<!--        @change="handleJump"-->
+<!--      />-->
+      <el-button class="ml-12" @click="fitWidth">适应宽度</el-button>
+      <el-button @click="resetScale">实际大小</el-button>
     </div>
-    <div class="pdf-container" ref="containerRef">
+    <div ref="containerRef" class="pdf-container">
       <VuePdfEmbed
+        v-if="pageWidth > 0"
         ref="pdfRef"
-        :source="pdfSource"
+        :source="source"
         :page="currentPage"
-        :scale="scale"
+        :width="pageWidth"
+        :scale="renderScale"
         @rendered="handleRendered"
         @loading-failed="handleError"
         @rendering-failed="handleError"
@@ -35,12 +39,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import VuePdfEmbed from 'vue-pdf-embed'
-import { ZoomIn, ZoomOut, ArrowLeft, ArrowRight, Search } from '@element-plus/icons-vue'
+import { ZoomIn, ZoomOut, ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
-const props = defineProps<{
+defineProps<{
   source: string
 }>()
 
@@ -49,59 +53,79 @@ const emit = defineEmits<{
   (e: 'error', message: string): void
 }>()
 
-const pdfRef = ref()
+/** PDF 默认页宽（pt），用作 100% 基准 */
+const BASE_PAGE_WIDTH = 612
+const minWidth = 320
+const maxWidth = 2400
+const zoomStep = 80
+
+const pdfRef = ref<{ doc?: { numPages?: number } } | null>(null)
 const containerRef = ref<HTMLDivElement>()
 const currentPage = ref(1)
 const totalPages = ref(0)
-const scale = ref(1.5)
-const searchTerm = ref('')
+const pageWidth = ref(0)
+const jumpPage = ref(1)
+const fittedOnce = ref(false)
 
-const pdfSource = computed(() => ({
-  url: props.source,
-  cMapUrl: 'https://unpkg.com/pdfjs-dist@3.11.174/cmaps/',
-  cMapPacked: true,
-}))
+const renderScale = Math.min(2, window.devicePixelRatio || 1.5)
+const zoomPercent = computed(() => (pageWidth.value / BASE_PAGE_WIDTH) * 100)
+
+onMounted(async () => {
+  await nextTick()
+  fitWidth()
+})
 
 function handleRendered() {
-  if (pdfRef.value) {
-    totalPages.value = pdfRef.value.doc?.numPages ?? 1
-    emit('loaded', totalPages.value)
+  const pages = pdfRef.value?.doc?.numPages ?? 1
+  totalPages.value = pages
+  if (!fittedOnce.value) {
+    fittedOnce.value = true
+    fitWidth()
   }
+  emit('loaded', pages)
 }
 
-function handleError(err: any) {
-  const message = err?.message ?? 'PDF加载失败'
+function handleError(err: unknown) {
+  const message = err instanceof Error ? err.message : 'PDF 加载失败'
   ElMessage.error(message)
   emit('error', message)
 }
 
 function zoomIn() {
-  if (scale.value < 3) {
-    scale.value = Math.min(3, scale.value + 0.25)
-  }
+  pageWidth.value = Math.min(maxWidth, pageWidth.value + zoomStep)
 }
 
 function zoomOut() {
-  if (scale.value > 0.5) {
-    scale.value = Math.max(0.5, scale.value - 0.25)
-  }
+  pageWidth.value = Math.max(minWidth, pageWidth.value - zoomStep)
 }
 
 function prevPage() {
   if (currentPage.value > 1) {
-    currentPage.value--
+    currentPage.value -= 1
+    jumpPage.value = currentPage.value
   }
 }
 
 function nextPage() {
   if (currentPage.value < totalPages.value) {
-    currentPage.value++
+    currentPage.value += 1
+    jumpPage.value = currentPage.value
   }
 }
 
-function handleSearch() {
-  if (!searchTerm.value) return
-  ElMessage.info('PDF搜索功能需要配合PDF.js底层API实现')
+function handleJump(value: number | undefined) {
+  if (!value || !totalPages.value) return
+  currentPage.value = Math.min(Math.max(1, value), totalPages.value)
+  jumpPage.value = currentPage.value
+}
+
+function fitWidth() {
+  const width = containerRef.value?.clientWidth ?? 1000
+  pageWidth.value = Math.max(minWidth, Math.min(maxWidth, width - 24))
+}
+
+function resetScale() {
+  pageWidth.value = BASE_PAGE_WIDTH
 }
 </script>
 
@@ -114,35 +138,39 @@ function handleSearch() {
 
 .pdf-toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  gap: 8px;
   padding: 8px 16px;
   background: #fff;
   border-bottom: 1px solid #e4e7ed;
-  gap: 8px;
-  flex-wrap: wrap;
+}
+
+.ml-12 {
+  margin-left: 0;
 }
 
 .scale-display,
 .page-display {
-  cursor: default;
   min-width: 80px;
-  text-align: center;
 }
 
-.search-input {
-  width: 220px;
+.jump-input {
+  width: 120px;
 }
 
 .pdf-container {
   flex: 1;
   overflow: auto;
-  padding: 16px;
-  background: #f5f7fa;
   display: flex;
   justify-content: center;
+  align-items: flex-start;
+  padding: 12px 8px 24px;
+  background: #525659;
 }
 
-.ml-12 {
-  margin-left: 12px;
+.pdf-container :deep(canvas),
+.pdf-container :deep(.vue-pdf-embed) {
+  max-width: none;
 }
 </style>

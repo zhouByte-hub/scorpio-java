@@ -1,85 +1,149 @@
 <template>
   <div class="editor-view">
     <div class="editor-header">
-      <el-button :icon="ArrowLeft" @click="$router.push('/')">返回</el-button>
-      <span class="doc-title">{{ docTitle }}</span>
-      <el-tag v-if="editorMode === 'view'" type="info" size="small">预览模式</el-tag>
-      <el-tag v-else type="success" size="small">编辑模式</el-tag>
-      <div class="header-actions">
-        <el-switch
-          v-model="isEditMode"
-          active-text="编辑"
-          inactive-text="预览"
-          @change="toggleMode"
-        />
+      <div class="left">
+        <el-button :icon="ArrowLeft" @click="goHome">返回</el-button>
+        <div class="title-block">
+          <h3>{{ documentInfo?.name || '文档编辑' }}</h3>
+          <span class="status" :class="{ dirty: dirty, saving }">
+            {{ statusText }}
+          </span>
+        </div>
+      </div>
+      <div class="right">
+        <el-button :disabled="!documentInfo" @click="handleDownload">下载</el-button>
+        <el-button type="primary" :loading="saving" :disabled="!dirty || loading" @click="handleSave">
+          保存
+        </el-button>
       </div>
     </div>
 
-    <div class="editor-body">
-      <el-alert
-        v-if="errorMessage"
-        :title="errorMessage"
-        type="error"
-        show-icon
-        closable
-        @close="errorMessage = ''"
+    <div v-loading="loading" class="editor-body">
+      <DocxEditor
+        v-if="!loading && htmlReady"
+        v-model="htmlContent"
+        @change="markDirty"
       />
-      <div v-if="!errorMessage" class="editor-wrapper">
-        <OnlyOfficeEditor
-          :document-url="documentUrl"
-          :document-title="docTitle"
-          :document-type="docType"
-          :editor-mode="editorMode"
-          @document-ready="handleReady"
-          @document-save="handleSave"
-          @error="handleError"
-        />
-      </div>
-      <el-empty v-if="!documentUrl && !errorMessage" description="文档加载中..." />
+      <el-empty v-else-if="!loading" description="文档内容为空" />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
-import OnlyOfficeEditor from '@/components/OnlyOfficeEditor.vue'
-import { getDocumentUrl } from '@/api/document'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import DocxEditor from '@/components/DocxEditor.vue'
+import {
+  fetchDocumentDetail,
+  fetchDocumentHtml,
+  getDocumentUrl,
+  saveDocumentHtml,
+} from '@/api/document'
+import type { DocumentInfo } from '@/types'
 
 const route = useRoute()
-const docId = computed(() => route.params.id as string)
+const router = useRouter()
 
-const documentUrl = ref('')
-const docTitle = ref('未命名文档')
-const docType = ref('word')
-const editorMode = ref<'edit' | 'view'>('edit')
-const isEditMode = ref(true)
-const errorMessage = ref('')
+const fileId = computed(() => String(route.params.id || ''))
+const documentInfo = ref<DocumentInfo | null>(null)
+const htmlContent = ref('')
+const htmlReady = ref(false)
+const loading = ref(true)
+const saving = ref(false)
+const dirty = ref(false)
 
-onMounted(() => {
-  // 根据文档ID构建文档URL
-  documentUrl.value = getDocumentUrl(docId.value)
-  docTitle.value = `文档-${docId.value}.docx`
-  docType.value = 'word'
+const statusText = computed(() => {
+  if (saving.value) return '保存中...'
+  if (dirty.value) return '未保存'
+  return '已保存'
 })
 
-function toggleMode(val: boolean) {
-  editorMode.value = val ? 'edit' : 'view'
+onMounted(async () => {
+  await loadDocument()
+  window.addEventListener('keydown', handleKeydown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown)
+})
+
+async function loadDocument() {
+  if (!fileId.value) {
+    ElMessage.error('文档 ID 无效')
+    return
+  }
+  loading.value = true
+  htmlReady.value = false
+  try {
+    documentInfo.value = await fetchDocumentDetail(fileId.value)
+    if (documentInfo.value.type !== 'word') {
+      await router.replace({ name: 'PdfViewer', params: { id: fileId.value } })
+      return
+    }
+    const result = await fetchDocumentHtml(fileId.value)
+    htmlContent.value = result.html || ''
+    htmlReady.value = true
+    dirty.value = false
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '加载文档失败'
+    ElMessage.error(message)
+  } finally {
+    loading.value = false
+  }
 }
 
-function handleReady() {
-  ElMessage.success('文档加载完成')
+function markDirty() {
+  dirty.value = true
 }
 
-function handleSave() {
-  ElMessage.success('文档保存成功')
+async function handleSave() {
+  if (!fileId.value || saving.value) return
+  saving.value = true
+  try {
+    const saved = await saveDocumentHtml(fileId.value, htmlContent.value)
+    documentInfo.value = saved
+    dirty.value = false
+    ElMessage.success('保存成功')
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '保存失败'
+    ElMessage.error(message)
+  } finally {
+    saving.value = false
+  }
 }
 
-function handleError(message: string) {
-  errorMessage.value = message
-  ElMessage.error(message)
+function handleDownload() {
+  if (!documentInfo.value) return
+  const link = document.createElement('a')
+  link.href = getDocumentUrl(documentInfo.value.id, 'attachment')
+  link.download = documentInfo.value.name
+  link.click()
+}
+
+async function goHome() {
+  if (dirty.value) {
+    try {
+      await ElMessageBox.confirm('当前有未保存的修改，确认离开？', '提示', {
+        type: 'warning',
+        confirmButtonText: '离开',
+        cancelButtonText: '取消',
+      })
+    } catch {
+      return
+    }
+  }
+  router.push({ name: 'Home' })
+}
+
+function handleKeydown(event: KeyboardEvent) {
+  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
+    event.preventDefault()
+    if (dirty.value) {
+      handleSave()
+    }
+  }
 }
 </script>
 
@@ -87,36 +151,49 @@ function handleError(message: string) {
 .editor-view {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100%;
 }
 
 .editor-header {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 12px;
-  padding: 8px 16px;
+  gap: 16px;
+  padding: 10px 16px;
   background: #fff;
   border-bottom: 1px solid #e4e7ed;
-  flex-shrink: 0;
 }
 
-.doc-title {
+.left,
+.right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.title-block h3 {
+  margin: 0;
   font-size: 16px;
-  font-weight: 500;
-  color: #303133;
+  font-weight: 600;
 }
 
-.header-actions {
-  margin-left: auto;
+.status {
+  margin-top: 2px;
+  display: block;
+  font-size: 12px;
+  color: #67c23a;
+}
+
+.status.dirty {
+  color: #e6a23c;
+}
+
+.status.saving {
+  color: #409eff;
 }
 
 .editor-body {
   flex: 1;
-  overflow: hidden;
-}
-
-.editor-wrapper {
-  width: 100%;
-  height: 100%;
+  min-height: 0;
 }
 </style>

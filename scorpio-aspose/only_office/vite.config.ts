@@ -16,23 +16,6 @@ export default defineConfig({
         target: 'http://localhost:9527',
         changeOrigin: true,
       },
-      // OnlyOffice Document Server 代理
-      '/web-apps': {
-        target: 'http://localhost:8080',
-        changeOrigin: true,
-      },
-      '/cache': {
-        target: 'http://localhost:8080',
-        changeOrigin: true,
-      },
-      '/coauthoring': {
-        target: 'http://localhost:8080',
-        changeOrigin: true,
-      },
-      '/spellchecker': {
-        target: 'http://localhost:8080',
-        changeOrigin: true,
-      },
     },
   },
   build: {
@@ -43,6 +26,18 @@ export default defineConfig({
           'element-plus': ['element-plus', '@element-plus/icons-vue'],
           'vue-vendor': ['vue', 'vue-router', 'pinia'],
           'pdf-viewer': ['vue-pdf-embed'],
+          'docx-editor': [
+            '@tiptap/vue-3',
+            '@tiptap/starter-kit',
+            '@tiptap/extension-underline',
+            '@tiptap/extension-text-align',
+            '@tiptap/extension-text-style',
+            '@tiptap/extension-color',
+            '@tiptap/extension-highlight',
+            '@tiptap/extension-link',
+            '@tiptap/extension-image',
+            '@tiptap/extension-placeholder',
+          ],
         },
       },
     },

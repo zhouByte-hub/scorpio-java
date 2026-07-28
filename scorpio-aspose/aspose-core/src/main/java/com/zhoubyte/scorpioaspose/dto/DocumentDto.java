@@ -1,11 +1,17 @@
 package com.zhoubyte.scorpioaspose.dto;
 
 import java.io.File;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 
 /**
  * 文档信息DTO
  */
 public class DocumentDto {
+
+    private static final DateTimeFormatter FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault());
 
     private String id;
     private String name;
@@ -19,25 +25,34 @@ public class DocumentDto {
     public static DocumentDto fromFile(File file, String contextPath) {
         DocumentDto dto = new DocumentDto();
         String fileName = file.getName();
-        // 从文件名提取ID（文件名格式：{uuid}.{ext}）
-        String id = fileName.contains(".") ? fileName.substring(0, fileName.lastIndexOf('.')) : fileName;
+        File parent = file.getParentFile();
+        // 优先用父目录名作为 ID（上传约定：{type}/{uuid}/{originalName.ext}）
+        String id = parent != null && !isTypeDir(parent.getName())
+                ? parent.getName()
+                : (fileName.contains(".") ? fileName.substring(0, fileName.lastIndexOf('.')) : fileName);
+
         dto.setId(id);
         dto.setFileName(fileName);
         dto.setName(fileName);
         dto.setFileSize(file.length());
-        // 根据扩展名判断类型
-        String ext = fileName.contains(".") ? fileName.substring(fileName.lastIndexOf('.') + 1).toLowerCase() : "";
-        if ("pdf".equals(ext)) {
-            dto.setType("pdf");
-        } else {
-            dto.setType("word");
-        }
-        // 构建下载URL
-        String parentDirName = file.getParentFile() != null ? file.getParentFile().getName() : "";
-        dto.setFileUrl(contextPath + "/documents/" + parentDirName + "/download");
-        dto.setCreatedAt(String.valueOf(file.lastModified()));
-        dto.setUpdatedAt(String.valueOf(file.lastModified()));
+
+        String ext = fileName.contains(".")
+                ? fileName.substring(fileName.lastIndexOf('.') + 1).toLowerCase()
+                : "";
+        dto.setType("pdf".equals(ext) ? "pdf" : "word");
+        dto.setFileUrl(contextPath + "/documents/" + id + "/download");
+
+        String time = FORMATTER.format(Instant.ofEpochMilli(file.lastModified()));
+        dto.setCreatedAt(time);
+        dto.setUpdatedAt(time);
         return dto;
+    }
+
+    private static boolean isTypeDir(String name) {
+        return "docx".equalsIgnoreCase(name)
+                || "doc".equalsIgnoreCase(name)
+                || "pdf".equalsIgnoreCase(name)
+                || "word".equalsIgnoreCase(name);
     }
 
     public String getId() {

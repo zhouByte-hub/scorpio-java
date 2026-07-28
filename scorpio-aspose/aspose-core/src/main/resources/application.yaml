@@ -10,3 +10,7 @@ spring:
       max-file-size: 100MB
       max-request-size: 100MB
 
+# 文档存储根目录（为空则自动探测 scorpio-aspose/src/main/resources）
+document:
+  storage:
+    path:

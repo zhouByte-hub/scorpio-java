@@ -8,35 +8,47 @@
       </el-button>
     </div>
 
-    <!-- 上传区域 -->
     <el-dialog v-model="showUpload" title="上传文档" width="560px" :close-on-click-modal="false">
       <FileUpload @success="handleUploadSuccess" @error="handleUploadError" />
     </el-dialog>
 
-    <!-- 文件列表 -->
     <el-card shadow="never" class="file-card">
       <template #header>
         <div class="card-header">
           <span>文档列表</span>
-          <el-button link type="primary" @click="refreshList">
-            <el-icon><Refresh /></el-icon>
-            刷新
-          </el-button>
+          <div class="header-actions">
+            <el-input
+              v-model="keyword"
+              clearable
+              placeholder="搜索文件名"
+              class="search-input"
+              :prefix-icon="Search"
+            />
+            <el-button link type="primary" @click="refreshList">
+              <el-icon><Refresh /></el-icon>
+              刷新
+            </el-button>
+          </div>
         </div>
       </template>
-      <el-empty v-if="!loading && documents.length === 0" description="暂无文档，请上传" />
-      <FileList v-else :documents="documents" @download="handleDownload" />
-      <div v-if="loading" class="loading-wrapper">
-        <el-skeleton :rows="5" animated />
-      </div>
+
+      <el-skeleton v-if="loading" :rows="5" animated />
+      <el-empty v-else-if="filteredDocuments.length === 0" description="暂无文档，请上传" />
+      <FileList
+        v-else
+        :documents="filteredDocuments"
+        @download="handleDownload"
+        @delete="handleDelete"
+      />
     </el-card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { Plus, Refresh } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { Plus, Refresh, Search } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import FileUpload from '@/components/FileUpload.vue'
 import FileList from '@/components/FileList.vue'
 import { useDocumentStore } from '@/stores/document'
@@ -44,34 +56,70 @@ import { getDocumentUrl } from '@/api/document'
 import type { DocumentInfo } from '@/types'
 
 const store = useDocumentStore()
+const router = useRouter()
 const showUpload = ref(false)
+const keyword = ref('')
 
 const documents = computed(() => store.documents)
 const loading = computed(() => store.loading)
+const filteredDocuments = computed(() => {
+  const key = keyword.value.trim().toLowerCase()
+  if (!key) return documents.value
+  return documents.value.filter((doc) => doc.name.toLowerCase().includes(key))
+})
 
 onMounted(() => {
-  store.loadDocuments()
+  store.loadDocuments().catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : '加载文档列表失败'
+    ElMessage.error(message)
+  })
 })
 
 function refreshList() {
-  store.loadDocuments()
+  store.loadDocuments().catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : '刷新失败'
+    ElMessage.error(message)
+  })
 }
 
 function handleUploadSuccess(doc: DocumentInfo) {
   showUpload.value = false
   store.addDocument(doc)
+  ElMessage.success('上传成功，正在打开...')
+  if (doc.type === 'pdf') {
+    router.push({ name: 'PdfViewer', params: { id: doc.id } })
+    return
+  }
+  router.push({ name: 'Editor', params: { id: doc.id } })
 }
 
 function handleUploadError(message: string) {
-  ElMessage.error(message ?? '上传失败')
+  ElMessage.error(message || '上传失败')
 }
 
 function handleDownload(doc: DocumentInfo) {
-  const url = getDocumentUrl(doc.id)
   const link = document.createElement('a')
-  link.href = url
+  link.href = getDocumentUrl(doc.id, 'attachment')
   link.download = doc.name
   link.click()
+}
+
+async function handleDelete(doc: DocumentInfo) {
+  try {
+    await ElMessageBox.confirm(`确认删除「${doc.name}」？`, '删除确认', {
+      type: 'warning',
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+    })
+    await store.removeDocument(doc.id)
+    ElMessage.success('删除成功')
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') {
+      return
+    }
+    const message = error instanceof Error ? error.message : '删除失败'
+    ElMessage.error(message)
+  }
 }
 </script>
 
@@ -103,9 +151,16 @@ function handleDownload(doc: DocumentInfo) {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 16px;
 }
 
-.loading-wrapper {
-  padding: 16px 0;
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.search-input {
+  width: 240px;
 }
 </style>

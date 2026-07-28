@@ -4,8 +4,6 @@ import com.zhoubyte.scorpioaspose.controller.UploadController;
 import com.zhoubyte.scorpioaspose.dto.OfferDto;
 import com.zhoubyte.scorpioaspose.service.WordService;
 import com.zhoubyte.scorpioaspose.utils.Result;
-import jakarta.annotation.Resource;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -20,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class WordDetectController extends UploadController<WordService> {
 
     public WordDetectController() {
-        super("DOCX");
+        super("DOCX,DOC");
     }
 
     @PostMapping(value = "/fill_placeholder")

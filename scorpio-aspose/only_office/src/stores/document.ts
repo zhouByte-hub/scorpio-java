@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { DocumentInfo } from '@/types'
-import { fetchDocumentList } from '@/api/document'
+import { deleteDocument, fetchDocumentList } from '@/api/document'
 
 export const useDocumentStore = defineStore('document', () => {
   const documents = ref<DocumentInfo[]>([])
@@ -17,8 +17,29 @@ export const useDocumentStore = defineStore('document', () => {
   }
 
   function addDocument(doc: DocumentInfo) {
-    documents.value.unshift(doc)
+    const index = documents.value.findIndex((item) => item.id === doc.id)
+    if (index >= 0) {
+      documents.value.splice(index, 1, doc)
+    } else {
+      documents.value.unshift(doc)
+    }
   }
 
-  return { documents, loading, loadDocuments, addDocument }
+  async function removeDocument(fileId: string) {
+    await deleteDocument(fileId)
+    documents.value = documents.value.filter((item) => item.id !== fileId)
+  }
+
+  function getDocumentById(fileId: string): DocumentInfo | undefined {
+    return documents.value.find((item) => item.id === fileId)
+  }
+
+  return {
+    documents,
+    loading,
+    loadDocuments,
+    addDocument,
+    removeDocument,
+    getDocumentById,
+  }
 })

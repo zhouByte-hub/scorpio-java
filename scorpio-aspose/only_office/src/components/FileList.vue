@@ -28,13 +28,13 @@
           {{ formatDate(row.updatedAt) }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="200" fixed="right">
+      <el-table-column label="操作" width="240" fixed="right">
         <template #default="{ row }">
           <el-button
             v-if="row.type === 'word'"
             type="primary"
             link
-            @click.stop="$router.push({ name: 'Editor', params: { id: row.id } })"
+            @click.stop="openDocument(row)"
           >
             编辑
           </el-button>
@@ -42,12 +42,15 @@
             v-if="row.type === 'pdf'"
             type="primary"
             link
-            @click.stop="$router.push({ name: 'PdfViewer', params: { id: row.id } })"
+            @click.stop="openDocument(row)"
           >
             预览
           </el-button>
-          <el-button type="success" link @click.stop="handleDownload(row)">
+          <el-button type="success" link @click.stop="$emit('download', row)">
             下载
+          </el-button>
+          <el-button type="danger" link @click.stop="$emit('delete', row)">
+            删除
           </el-button>
         </template>
       </el-table-column>
@@ -56,6 +59,7 @@
 </template>
 
 <script setup lang="ts">
+import { useRouter } from 'vue-router'
 import { Document } from '@element-plus/icons-vue'
 import type { DocumentInfo } from '@/types'
 
@@ -63,17 +67,23 @@ defineProps<{
   documents: DocumentInfo[]
 }>()
 
-const emit = defineEmits<{
+defineEmits<{
   (e: 'download', doc: DocumentInfo): void
+  (e: 'delete', doc: DocumentInfo): void
 }>()
 
-function handleRowClick(row: DocumentInfo) {
-  // 预留行点击事件
-  console.log('点击文档:', row.name)
+const router = useRouter()
+
+function openDocument(doc: DocumentInfo) {
+  if (doc.type === 'pdf') {
+    router.push({ name: 'PdfViewer', params: { id: doc.id } })
+    return
+  }
+  router.push({ name: 'Editor', params: { id: doc.id } })
 }
 
-function handleDownload(doc: DocumentInfo) {
-  emit('download', doc)
+function handleRowClick(row: DocumentInfo) {
+  openDocument(row)
 }
 
 function getFileIconColor(type: string): string {
@@ -81,15 +91,21 @@ function getFileIconColor(type: string): string {
 }
 
 function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 B'
+  if (!bytes) return '0 B'
   const units = ['B', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(1024))
-  return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1)
+  return `${(bytes / 1024 ** i).toFixed(1)} ${units[i]}`
 }
 
 function formatDate(dateStr: string): string {
   if (!dateStr) return '-'
+  if (/^\d{4}-\d{2}-\d{2} /.test(dateStr)) {
+    return dateStr
+  }
   const date = new Date(dateStr)
+  if (Number.isNaN(date.getTime())) {
+    return dateStr
+  }
   return date.toLocaleString('zh-CN', {
     year: 'numeric',
     month: '2-digit',

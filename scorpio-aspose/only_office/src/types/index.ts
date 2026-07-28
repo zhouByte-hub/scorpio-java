@@ -10,30 +10,15 @@ export interface DocumentInfo {
   updatedAt: string
 }
 
-/** OnlyOffice编辑器配置 */
-export interface OnlyOfficeConfig {
-  document: {
-    fileType: string
-    key: string
-    title: string
-    url: string
-  }
-  documentType: string
-  editorConfig: {
-    callbackUrl: string
-    lang: string
-    mode: string
-    user: {
-      id: string
-      name: string
-    }
-  }
+/** 文档 HTML 内容 */
+export interface DocumentHtml {
+  fileId: string
+  html: string
 }
 
-/** PDF预览状态 */
+/** PDF 预览状态 */
 export interface PdfViewerState {
   currentPage: number
   totalPages: number
   scale: number
-  searchTerm: string
 }

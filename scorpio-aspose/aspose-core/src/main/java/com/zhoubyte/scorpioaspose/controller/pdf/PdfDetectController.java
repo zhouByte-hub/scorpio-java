@@ -3,7 +3,6 @@ package com.zhoubyte.scorpioaspose.controller.pdf;
 import com.zhoubyte.scorpioaspose.controller.UploadController;
 import com.zhoubyte.scorpioaspose.service.PdfService;
 import com.zhoubyte.scorpioaspose.utils.Result;
-import jakarta.annotation.Resource;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
