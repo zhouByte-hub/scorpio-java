@@ -1,3 +1,6 @@
 spring:
   application:
     name: scorpio-elastic
+  elasticsearch:
+    uris:
+      - http://localhost:19200
