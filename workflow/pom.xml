@@ -13,6 +13,7 @@
 
     <modules>
         <module>scorpio-flowable</module>
+        <module>camunda-bpmn</module>
     </modules>
 
     <properties>
