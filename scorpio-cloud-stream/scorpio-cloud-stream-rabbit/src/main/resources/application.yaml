@@ -1,0 +1,42 @@
+server:
+  port: 19081
+
+spring:
+  application:
+    name: scorpio-cloud-stream-rabbit
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+  cloud:
+    function:
+      definition: rabbitNormalConsumer;rabbitGroupConsumer;rabbitErrorConsumer
+    stream:
+      bindings:
+        rabbitNormal-out-0:
+          destination: scorpio.rabbit.normal
+        rabbitGroup-out-0:
+          destination: scorpio.rabbit.group
+        rabbitDelayed-out-0:
+          destination: scorpio.rabbit.delayed
+        rabbitError-out-0:
+          destination: scorpio.rabbit.error
+        rabbitNormalConsumer-in-0:
+          destination: scorpio.rabbit.normal
+          group: scorpio-rabbit-normal-group
+        rabbitGroupConsumer-in-0:
+          destination: scorpio.rabbit.group
+          group: scorpio-rabbit-group
+        rabbitErrorConsumer-in-0:
+          destination: scorpio.rabbit.error
+          group: scorpio-rabbit-error-group
+      rabbit:
+        bindings:
+          rabbitDelayed-out-0:
+            producer:
+              delayedExchange: true
+          rabbitErrorConsumer-in-0:
+            consumer:
+              autoBindDlq: true
+              republishToDlq: true

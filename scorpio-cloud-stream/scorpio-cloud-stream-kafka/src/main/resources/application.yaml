@@ -1,0 +1,42 @@
+server:
+  port: 19082
+
+spring:
+  application:
+    name: scorpio-cloud-stream-kafka
+  kafka:
+    bootstrap-servers: localhost:9092
+  cloud:
+    function:
+      definition: kafkaNormalConsumer;kafkaGroupConsumer;kafkaErrorConsumer
+    stream:
+      bindings:
+        kafkaNormal-out-0:
+          destination: scorpio.kafka.normal
+        kafkaGroup-out-0:
+          destination: scorpio.kafka.group
+        kafkaPartition-out-0:
+          destination: scorpio.kafka.partition
+          producer:
+            partition-key-expression: headers['partitionKey']
+            partition-count: 3
+        kafkaError-out-0:
+          destination: scorpio.kafka.error
+        kafkaNormalConsumer-in-0:
+          destination: scorpio.kafka.normal
+          group: scorpio-kafka-normal-group
+        kafkaGroupConsumer-in-0:
+          destination: scorpio.kafka.group
+          group: scorpio-kafka-group
+        kafkaErrorConsumer-in-0:
+          destination: scorpio.kafka.error
+          group: scorpio-kafka-error-group
+      kafka:
+        binder:
+          brokers: localhost:9092
+          autoCreateTopics: true
+        bindings:
+          kafkaErrorConsumer-in-0:
+            consumer:
+              enableDlq: true
+              dlqName: scorpio.kafka.error.dlq
