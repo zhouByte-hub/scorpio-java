@@ -1,6 +1,6 @@
 # Scorpio-Java：Java 核心技术深度实践
 
-Scorpio-Java 是一个面向 Java 开发者的系统化学习项目，以代码实践为核心，从底层原理重新构建对 Java 核心技术的理解。项目采用 Maven 多模块架构（基于 Java 21），每个模块聚焦一个核心技术领域，通过完整的代码实现配套详细的技术文档，深入剖析原理、常见陷阱与最佳实践。覆盖类加载、代理、设计模式、分布式基础、Java AI，以及文档处理与在线办公等方向。
+Scorpio-Java 是一个面向 Java 开发者的系统化学习项目，以代码实践为核心，从底层原理重新构建对 Java 核心技术的理解。项目采用 Maven 多模块架构（基于 Java 21），每个模块聚焦一个核心技术领域，通过完整的代码实现配套详细的技术文档，深入剖析原理、常见陷阱与最佳实践。覆盖类加载、代理、设计模式、分布式基础、Java AI、文档处理与在线办公、Elasticsearch 检索实践，以及 Spring Cloud Stream 消息中间件集成等方向。
 
 ## 一、核心学习领域
 
@@ -902,6 +902,125 @@ graph TD
 - 为什么 DOCX ↔ HTML 能编辑，却仍不如专业在线 Office？
 - 什么时候该转 PDF 固化，什么时候该保留可编辑源文件？
 
+### 1.7 Elasticsearch 检索实践（scorpio-elastic）
+
+掌握 Elasticsearch 在 Java 应用中的常见使用方式，从索引管理、文档 CRUD 到搜索、高亮、动态文档和聚合统计，建立完整的 ES 学习闭环。
+
+#### 1.7.1 索引管理
+
+通过 `ElasticsearchTemplate` 和 ES Java Client 理解索引生命周期管理。
+
+**核心能力：**
+- 创建索引并写入 mapping
+- 删除索引、判断索引是否存在
+- 查询索引 mapping 和索引列表
+- 动态追加字段 mapping
+
+**学习重点：**
+- index、mapping、document 三者的职责边界
+- `text`、`keyword`、`integer` 等字段类型的差异
+- analyzer 与 search analyzer 对搜索结果的影响
+
+#### 1.7.2 文档 CRUD 与批量操作
+
+以 `UserDocEntity` 作为固定实体示例，理解类型化文档的写入、查询、更新和删除。
+
+**核心接口能力：**
+- 单条用户文档保存、按 ID 查询、更新、删除
+- 批量保存与批量删除
+- 分页、排序、关键词搜索
+- 搜索结果高亮返回
+
+**学习重点：**
+- 固定实体适合结构稳定的业务数据
+- 批量操作要关注失败边界与幂等性
+- 搜索接口返回结构应包含 `total`、`page`、`size` 和 `content`
+
+#### 1.7.3 动态文档与聚合统计
+
+动态文档适合学习管理类场景：请求传入 `indexName` 和字段 Map，运行时决定写入哪个索引。
+
+**动态能力：**
+- 动态文档保存、查询、删除
+- 动态索引关键词搜索
+- 用户年龄区间聚合
+- 动态字段 terms 统计
+
+**常见陷阱：**
+1. **把 mapping 当数据库表结构随意改**：字段类型一旦写入，后续修改会受到 ES 限制。
+2. **忽略 text 和 keyword 差异**：全文检索和精确聚合不是同一种字段模型。
+3. **查询条件写死**：学习模块应保留动态查询入口，方便观察不同字段类型的行为。
+4. **错误直接暴露底层异常**：Controller 层应统一返回结构，异常信息要适合接口调用者理解。
+
+### 1.8 Spring Cloud Stream 消息中间件实践（scorpio-cloud-stream）
+
+学习 Spring Cloud Stream 的 Binder 抽象，理解应用代码如何通过统一模型对接 RabbitMQ 和 Kafka。
+
+#### 1.8.1 模块拆分
+
+`scorpio-cloud-stream` 是父聚合模块，内部拆分为两个可独立启动的子模块：
+
+```text
+scorpio-cloud-stream
+├── scorpio-cloud-stream-rabbit
+└── scorpio-cloud-stream-kafka
+```
+
+**拆分原因：**
+- RabbitMQ 和 Kafka 的 broker 模型不同，配置项差异明显
+- 独立子模块能避免 binder 依赖和 binding 配置互相干扰
+- 每个应用都能单独启动、调试和观察消息流转
+
+#### 1.8.2 RabbitMQ Binder 示例
+
+RabbitMQ 子模块聚焦 exchange、队列、分组消费、延迟消息和死信处理。
+
+**核心能力：**
+- REST 接口发送普通消息
+- 分组消费示例
+- 批量消息发送
+- 延迟消息发送
+- 死信队列演示
+
+**学习重点：**
+- destination 与 exchange 的对应关系
+- group 对队列命名和消费语义的影响
+- 延迟消息依赖 RabbitMQ delayed exchange 能力
+- 消费异常如何进入 DLQ
+
+#### 1.8.3 Kafka Binder 示例
+
+Kafka 子模块聚焦 topic、consumer group、partition key、批量发送和错误处理。
+
+**核心能力：**
+- REST 接口发送普通消息
+- 分组消费示例
+- 分区 key 发送示例
+- 批量消息发送
+- 错误处理与 DLQ 示例
+
+**学习重点：**
+- topic 与 consumer group 决定消费隔离关系
+- partition key 决定同 key 消息的分区归属
+- Kafka 更适合日志型、可回放、顺序性可控的消息场景
+- RabbitMQ 更偏队列路由和任务分发模型
+
+#### 1.8.4 StreamBridge 与函数式消费者
+
+两个子模块都使用 `StreamBridge` 发送消息，并通过 `Consumer<Message<String>>` 定义消费者。
+
+**设计取舍：**
+- Controller 只接收请求，不直接操作 binder
+- Service 统一封装 bindingName、headers 和发送结果
+- Consumer 函数只关注消息消费逻辑
+- binder 差异放在 `application.yaml` 中配置
+
+**学完应能回答：**
+- Spring Cloud Stream 的 binder 解决了什么问题？
+- RabbitMQ 与 Kafka 的消息模型差异是什么？
+- `destination`、`group`、`bindingName` 分别表示什么？
+- 什么时候使用分区 key，什么时候使用死信队列？
+
 ## 二、学习特色
 
 ### 2.1 原理驱动
@@ -942,4 +1061,4 @@ graph TD
 2. **进阶篇**：自定义ClassLoader、打破双亲委派、热加载
 3. **高级篇**：类隔离、插件化架构、动态服务发现
 4. **实战篇**：Tomcat类加载机制、Spring AOP原理、MyBatis Mapper代理
-5. **应用篇**：Java AI 集成、文档自动化与在线办公能力分层（预览 / 编辑 / 协同）
+5. **应用篇**：Java AI 集成、文档自动化与在线办公能力分层（预览 / 编辑 / 协同）、Elasticsearch 检索实践、Spring Cloud Stream 消息中间件集成
