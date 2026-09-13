@@ -1,3 +1,26 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /springAi
 spring:
   application:
     name: core
+  ai:
+    ollama:
+      base-url: http://localhost:11434
+      chat:
+        model: qwen2.5:3b-instruct
+#        think: true # 需要考虑模型是否支持深度思考
+      embedding:
+        model: nomic-embed-text
+      init:
+        pull-model-strategy: never
+        max-retries: 3
+        timeout: 60s
+  datasource:
+    url: jdbc:mysql://localhost:13306/ai-core?serverTimezone=Asia/Shanghai
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: root
+    password: 123456
+
+
