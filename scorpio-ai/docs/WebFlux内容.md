@@ -1,707 +1,502 @@
-# WebFlux 从 0 到 1（面向 Spring AI）
+# Spring WebFlux
 
-学 Spring AI 时，流式对话、Token 逐条推送、`ChatClient.stream()` 都会冒出 `Mono` / `Flux`。这不是 Spring AI 另搞的一套 API，而是 **Reactor**（WebFlux 的响应式内核）。本文按「阻塞直觉 → 响应式模型 → 操作符 → HTTP 流式 → 对照本仓库代码」写，读完应能看懂并改 `POST /chat/stream`。
+本文只讲 **Spring WebFlux**：它是什么、能做什么、和 Spring MVC 比有什么取舍。不讲业务场景、不绑某个具体项目。
+
+先纠正一个常见说法：对比对象不是「Spring Boot vs WebFlux」。**Spring Boot 是应用脚手架**，Web 层可以选 **Spring MVC**，也可以选 **Spring WebFlux**。后面说的优缺点，都是 **WebFlux vs MVC**。
 
 ---
 
-## 1. 先记住三句话
+## 1. WebFlux 是什么
 
-1. **WebFlux 是 Spring 的响应式 Web 栈**；底层数据流库是 **Project Reactor**。
-2. 你在 Spring AI 里真正天天碰到的，是 Reactor 的两个类型：`Mono<T>`（0 或 1 个元素）和 `Flux<T>`（0 到 N 个元素）。
-3. 响应式流是 **「描述接下来怎么做」的流水线**。大多数情况下，**没有人订阅，流水线就不会跑**。
+**Spring WebFlux** 是 Spring 5 引入的 **响应式 Web 框架**，用来写非阻塞的 HTTP 服务。
 
-Spring AI 的对应关系：
+它做三件事：
 
-| 需求 | Spring AI | Reactor 类型 |
-|---|---|---|
-| 一次拿完整回答 | `chatClient.prompt().user(msg).call().content()` | 阻塞拿到 `String`（内部可能仍是响应式，但对调用方是同步） |
-| 边生成边推送 token | `chatClient.prompt().user(msg).stream().content()` | `Flux<String>` |
+1. 用 **事件循环** 处理连接，而不是「一个请求占一条线程等到结束」。
+2. 用 **Mono / Flux** 描述「现在还没有、稍后才会到来」的结果。
+3. 提供一套完整的 Web 能力：路由、参数绑定、过滤器、SSE、WebSocket、HTTP 客户端等。
 
-本仓库已经在用第二种：
+默认运行在 **Netty** 上（也可以跑在 Servlet 3.1+ 容器上）。引入依赖：
 
-```java
-// ChatServiceImpl#stream
-return chatClient.prompt()
-        .user(requireMessage(message))
-        .stream()
-        .content(); // Flux<String>
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-webflux</artifactId>
+</dependency>
 ```
 
-Controller 把它直接返回给 HTTP：
+和 MVC 的对应关系：
+
+| | Spring MVC | Spring WebFlux |
+|---|---|---|
+| Spring Boot Starter | `spring-boot-starter-web` | `spring-boot-starter-webflux` |
+| 默认服务器 | Tomcat（Servlet） | Netty（非 Servlet） |
+| 编程风格 | 命令式，方法直接返回数据 | 响应式，方法返回 `Mono` / `Flux` |
+| 线程模型 | 一请求一线程，IO 时线程阻塞等待 | 少量事件线程，IO 完成后再回调继续 |
+
+两套栈 **不要同时当服务端用**。classpath 上同时有 `starter-web` 和 `starter-webflux` 时，Spring Boot 默认仍走 MVC。要纯 WebFlux，就只留 `starter-webflux`。
+
+---
+
+## 2. WebFlux 提供了哪些能力
+
+按「你拿它能干什么」列。这是 WebFlux 的功能边界。
+
+### 2.1 非阻塞 HTTP 服务端
+
+接收请求、写出响应，过程中 **不占用工作线程去干等** IO。适合大量并发连接、每个连接等待时间很长的场景（下游慢接口、长轮询、推送）。
+
+### 2.2 注解式 Controller
+
+写法接近 MVC，返回类型换成响应式类型：
 
 ```java
-@PostMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-public Flux<String> stream(@RequestBody ChatMessageRequest request) {
-    return chatService.stream(request.message());
+@RestController
+@RequestMapping("/users")
+public class UserController {
+
+    @GetMapping("/{id}")
+    public Mono<User> get(@PathVariable String id) {
+        return userService.findById(id); // Mono<User>
+    }
+
+    @GetMapping
+    public Flux<User> list() {
+        return userService.findAll();    // Flux<User>
+    }
 }
 ```
 
-后面所有概念，都是为了把这两段代码读透。
+熟悉的注解都在：`@GetMapping`、`@RequestBody`、`@PathVariable`、`@Valid`、`@ExceptionHandler`。
 
----
+### 2.3 函数式端点（RouterFunction）
 
-## 2. 为什么会需要 WebFlux
-
-传统 Spring MVC 处理一次请求的典型路径：
-
-```
-请求进来 → 占用一个 Servlet 线程 → 调 Ollama / 调数据库（线程卡住等） → 拿到结果 → 写回响应 → 释放线程
-```
-
-大模型生成很慢，可能几十秒，还希望 **生成一个 token 就推给前端一个 token**。如果仍用「等全部完成再返回」：
-
-- 用户要干等整段回答结束
-- 一个请求长时间占着线程
-- 接口形态也表达不了「一串陆续到来的数据」
-
-响应式要解决的是：**数据按时间陆续到达，用订阅关系传递，而不是用返回值一次性端上来。**
-
-```mermaid
-sequenceDiagram
-    participant User as 调用方
-    participant Flux as Flux管道
-    participant Ollama as 模型
-
-    User->>Flux: subscribe（订阅）
-    Flux->>Ollama: 开始要数据
-    Ollama-->>Flux: token 1
-    Flux-->>User: onNext("你")
-    Ollama-->>Flux: token 2
-    Flux-->>User: onNext("好")
-    Ollama-->>Flux: 结束
-    Flux-->>User: onComplete()
-```
-
-这和 ChatGPT 网页「一个字一个字往外蹦」是同一类体验。Spring AI 的 stream API 就是把模型输出封装成 `Flux`。
-
----
-
-## 3. 换脑子：命令式 vs 响应式
-
-### 3.1 命令式（你已经熟的写法）
+不用注解，用函数组装路由。适合网关、BFF、路由表很大的服务：
 
 ```java
-String answer = chatService.chat("你好");
-System.out.println(answer);
+@Bean
+RouterFunction<ServerResponse> routes(UserHandler handler) {
+    return RouterFunctions.route()
+            .GET("/users/{id}", handler::get)
+            .GET("/users", handler::list)
+            .POST("/users", handler::create)
+            .build();
+}
 ```
 
-含义：调用 → **当前线程堵住** → 有结果了才继续。
+`HandlerFunction` 吃 `ServerRequest`，吐 `Mono<ServerResponse>`。和注解式可以混用。
 
-### 3.2 响应式
+### 2.4 响应式数据：Mono 和 Flux
 
-```java
-Flux<String> tokens = chatService.stream("你好");
-tokens.subscribe(token -> System.out.println(token));
-```
+这是 WebFlux 的返回值语言，来自 **Project Reactor**。
 
-含义：先拿到一条 **管道**（还没真正问模型），`subscribe` 之后才开始流动。每个 token 到来时回调一次。
-
-| | 命令式 | 响应式 |
+| 类型 | 含义 | 典型用途 |
 |---|---|---|
-| 返回值 | 数据本身 | 数据的生产者（管道） |
-| 等待方式 | 线程阻塞 | 事件回调（onNext / onError / onComplete） |
-| 多次结果 | `List<T>`（已经全部在内存里） | `Flux<T>`（按时间一个一个来） |
-| 适合 | CRUD、一次拿完 | 流式 LLM、SSE、无限或长流水 |
+| `Mono<T>` | 0 或 1 个元素 | 查一条、创建一条、空 404 |
+| `Flux<T>` | 0 到 N 个元素 | 列表、无限流、分片推送 |
 
-**直觉对照：** `List<String>` 是已经装好的一桶水；`Flux<String>` 是还在流的水管。你接上水管（订阅）才会出水。
+它们不是「已经算好的数据」，而是 **一条尚未执行的流水线**。有人订阅之后才开始跑。
+
+### 2.5 WebClient（非阻塞 HTTP 客户端）
+
+MVC 里常用的 `RestTemplate` 是阻塞的。WebFlux 配套客户端是 `WebClient`：
+
+```java
+Mono<User> user = WebClient.create("http://user-service")
+        .get()
+        .uri("/users/{id}", id)
+        .retrieve()
+        .bodyToMono(User.class);
+```
+
+也可以 `bodyToFlux` 消费流式响应。即使服务端仍是 MVC，也可以单独用 `WebClient` 做非阻塞调用。
+
+### 2.6 SSE（Server-Sent Events）
+
+一条 HTTP 连接，服务器持续往客户端推文本事件。Controller 返回 `Flux`，并声明：
+
+```java
+@GetMapping(value = "/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+public Flux<String> events() {
+    return Flux.interval(Duration.ofSeconds(1))
+            .map(i -> "tick-" + i);
+}
+```
+
+适合服务端单向推送：进度、日志、通知。浏览器可用 `EventSource`。
+
+### 2.7 WebSocket
+
+全双工长连接。WebFlux 提供 `WebSocketHandler`：
+
+```java
+public class EchoHandler implements WebSocketHandler {
+    @Override
+    public Mono<Void> handle(WebSocketSession session) {
+        return session.send(session.receive().map(msg ->
+                session.textMessage("echo: " + msg.getPayloadAsText())));
+    }
+}
+```
+
+适合双方都要持续发消息：协同编辑、行情、即时通讯。
+
+### 2.8 过滤器与横切逻辑
+
+- **WebFilter**：类似 Servlet Filter，但是非阻塞的。鉴权、日志、TraceId 往这里放。
+- **HandlerInterceptor 没有对等物**。MVC 的拦截器模型建立在阻塞调用链上，WebFlux 用 Filter + `WebFilterChain`。
+
+```java
+@Component
+public class AccessLogFilter implements WebFilter {
+    @Override
+    public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
+        long start = System.currentTimeMillis();
+        return chain.filter(exchange)
+                .doFinally(sig -> log.info("{} {} {}ms",
+                        exchange.getRequest().getMethod(),
+                        exchange.getRequest().getPath(),
+                        System.currentTimeMillis() - start));
+    }
+}
+```
+
+### 2.9 参数绑定、校验、异常处理
+
+和 MVC 同级的能力都有：
+
+- 路径、Query、Header、Cookie、`@RequestBody` 绑定
+- `@Valid` + `LocalValidatorFactoryBean`
+- `@ExceptionHandler`、`@ControllerAdvice`
+- 函数式端点用 `RequestPredicate`、手动校验
+
+### 2.10 CORS、静态资源、WebSession
+
+- CORS：`@CrossOrigin` 或全局 `CorsWebFilter`
+- 静态资源：`spring.webflux.static-path-pattern`
+- Session：`WebSession`（不是 Servlet `HttpSession`），可落到 Redis 等
+
+### 2.11 Spring Security 的 WebFlux 版
+
+过滤器链是 `SecurityWebFilterChain`，不是 Servlet 的 `FilterChainProxy`。写法不同，能力对应：认证、授权、CSRF、OAuth2。
+
+### 2.12 测试：WebTestClient
+
+不启真实端口也能测路由和 JSON：
+
+```java
+webTestClient.get().uri("/users/1")
+        .exchange()
+        .expectStatus().isOk()
+        .expectBody(User.class);
+```
+
+### 2.13 背压（Backpressure）
+
+订阅者可以告诉发布者「我一次只要 N 个」。生产者太快、消费者太慢时，避免把内存撑爆。HTTP 写出跟不上时，WebFlux 会把背压传到上游 `Flux`。
+
+### 2.14 和响应式数据访问拼成全链路
+
+WebFlux **本身不管数据库**。要整条链路都不阻塞，下游也得是响应式的：
+
+| 阻塞（不该在事件线程里直接调） | 非阻塞替代 |
+|---|---|
+| JDBC / MyBatis / JPA | R2DBC |
+| `RestTemplate` | `WebClient` |
+| 同步 Redis 客户端 | Lettuce Reactive / Spring Data Redis Reactive |
+| 阻塞 Mongo 驱动 | Spring Data Mongo Reactive |
+
+只把 Controller 改成 `Mono`，里面仍 `jdbcTemplate.query`，**等于没换成非阻塞**，还会把 Netty 事件线程堵死。
 
 ---
 
-## 4. 三个角色：Publisher、Subscriber、Subscription
+## 3. 核心差异：线程怎么干活
 
-这是 Reactive Streams 规范里的三个接口，Reactor 都实现了。
+这是理解 WebFlux 的钥匙。功能列表只说明「有什么」，线程模型说明「为什么和 MVC 不一样」。
+
+### 3.1 Spring MVC：线程被 IO 绑住
+
+```
+请求进来
+  → 从 Tomcat 线程池取出一条线程
+  → 这条线程执行 Controller、查库、调 HTTP
+  → 等下游返回期间，线程一直占用着
+  → 写回响应，线程归还线程池
+```
+
+1000 个慢请求 ≈ 1000 条线程在睡。线程贵（栈内存、切换），所以 MVC 靠把线程池开大来扛并发，上限很明显。
+
+### 3.2 WebFlux：线程只干活，不等待
+
+```
+请求进来
+  → 事件循环线程接手，注册「等 IO」
+  → 线程立刻去处理别的连接（不睡）
+  → IO 完成，事件循环再回调后续逻辑
+  → 写出响应
+```
 
 ```mermaid
 flowchart LR
-    P[Publisher 发布者<br/>Flux / Mono] -->|subscribe| S[Subscriber 订阅者]
-    S -->|request n| Sub[Subscription 订阅关系]
-    P -->|onNext / onError / onComplete| S
+    subgraph mvc [Spring MVC]
+        T1[线程1 阻塞等 DB]
+        T2[线程2 阻塞等 HTTP]
+        T3[线程3 阻塞等磁盘]
+    end
+    subgraph flux [WebFlux]
+        EL[少量事件循环线程]
+        EL --> A[连接A 的回调]
+        EL --> B[连接B 的回调]
+        EL --> C[连接C 的回调]
+    end
 ```
 
-- **Publisher**：会往外推数据的人。`Flux`、`Mono` 都是 Publisher。
-- **Subscriber**：收数据的人。HTTP 层、`subscribe(...)`、`block()` 都算某种订阅者。
-- **Subscription**：两者之间的「合同」。订阅者通过它说「我还能再收几个」（背压），也可以 `cancel()` 取消。
+同样 1000 个慢请求，WebFlux 可能只用几十条事件线程。前提是：**回调里不能出现阻塞调用**。一旦在事件线程里 `Thread.sleep`、JDBC、`RestTemplate`，事件循环被卡住，所有连接一起堵。
 
-Subscriber 只会收到这几种信号：
+### 3.3 直观对比
 
-| 信号 | 含义 | 次数 |
+| | MVC | WebFlux |
 |---|---|---|
-| `onSubscribe` | 订阅成功，拿到 Subscription | 1 次 |
-| `onNext(T)` | 来了一个元素 | 0~N 次 |
-| `onError(Throwable)` | 失败，流结束 | 最多 1 次，之后不会再有数据 |
-| `onComplete()` | 正常结束 | 最多 1 次，和 onError 互斥 |
+| 并发 1 万长连接 | 需要很大线程池，内存高 | 少量线程即可挂住连接 |
+| 一次请求里的 CPU 计算 | 没问题 | 同样没问题，也没优势 |
+| 一次请求里的阻塞 IO | 正常用法 | **禁止**在事件线程做 |
+| 吞吐上限主要卡在 | 线程数、内存 | 事件循环是否被阻塞、下游是否非阻塞 |
 
-LLM 流式输出可以想象成：
-
-```
-onSubscribe
-onNext("你")
-onNext("好")
-onNext("，")
-onNext("世界")
-onComplete
-```
-
-模型超时或断连则是 `onError`。
+WebFlux 不是「更快的 MVC」。同样做一次简单 CRUD、下游是本地内存，两者延迟差不多。它赢在 **连接数上去之后，线程和内存不再线性膨胀**。
 
 ---
 
-## 5. Mono 和 Flux
+## 4. 编程模型：Mono / Flux 怎么用
 
-都在包 `reactor.core.publisher` 里。
-
-### 5.1 Mono：0 或 1 个元素
-
-适合「一次请求、一个结果」：查用户、调一次非流式 HTTP、最终汇总成一句话。
+### 4.1 管道，不是数据
 
 ```java
-Mono<String> mono = Mono.just("hello");
-Mono<String> empty = Mono.empty();          // 完成但没有元素
-Mono<String> error = Mono.error(new IllegalStateException("boom"));
+Mono<User> mono = userRepository.findById(id);
 ```
 
-常见创建方式：
+这行执行完，**数据库还没查**。`mono` 是一张说明书：订阅之后才查。谁会订阅？
+
+- Controller `return mono;` → Spring 当订阅者，结果写成 HTTP
+- `mono.subscribe(...)` → 你自己订
+- `mono.block()` → 当前线程堵住直到有结果（Web 请求线程里不要用）
+
+规则：**Web 层把 Mono/Flux 当返回值交出去，不要在业务里提前 subscribe。**
+
+### 4.2 常用操作符
+
+操作符返回 **新管道**，链式写：
 
 ```java
-Mono.just(value);                 // 已有值
-Mono.justOrEmpty(optional);       // Optional 空则 empty
-Mono.fromCallable(() -> 读文件()); // 订阅时才执行（延迟）
-Mono.fromFuture(completableFuture);
-Mono.delay(Duration.ofSeconds(1)); // 1 秒后发出 0
+Mono<UserDto> dto = userRepository.findById(id)
+        .filter(User::isActive)
+        .map(this::toDto)
+        .switchIfEmpty(Mono.error(new NotFoundException(id)));
 ```
 
-### 5.2 Flux：0 到 N 个元素
-
-适合 token 流、日志流、消息流。
-
-```java
-Flux<String> flux = Flux.just("你", "好", "世界");
-Flux<Integer> range = Flux.range(1, 5);          // 1..5
-Flux<Long> ticks = Flux.interval(Duration.ofMillis(200)); // 无限，每 200ms 一个
-```
-
-Spring AI：
-
-```java
-Flux<String> tokens = chatClient.prompt()
-        .user("用一句话介绍 Reactor")
-        .stream()
-        .content();
-```
-
-每个 `onNext` 通常是一小段文本（不一定严格一个字，取决于模型分词和实现）。
-
-### 5.3 互相转换
-
-```java
-Mono<String> one = Flux.just("a", "b", "c").next();      // 只要第一个
-Mono<List<String>> all = Flux.just("a", "b").collectList(); // 收齐变成 List
-Flux<String> fromMono = Mono.just("a").flux();
-Flux<String> concat = mono1.concatWith(mono2);           // 两个 Mono 拼成 Flux
-```
-
-学 Spring AI 时最常用的转换：调试时把流式结果收成一句完整话：
-
-```java
-String full = chatService.stream("你好")
-        .collect(Collectors.joining())  // 这是 Java Stream，不是 Reactor
-        ;
-
-// 正确的 Reactor 写法：
-String full2 = chatService.stream("你好")
-        .reduce("", String::concat)
-        .block();   // 仅调试 / 测试里 block，Web 请求线程里不要随便 block
-```
-
----
-
-## 6. 冷流：不订阅就不执行
-
-这是第一道坎。
-
-```java
-Flux<String> flux = Flux.defer(() -> {
-    System.out.println("开始问模型");
-    return chatClient.prompt().user("hi").stream().content();
-});
-
-// 走到这里，上面的「开始问模型」还不会打印
-// 因为还没有订阅
-```
-
-谁会触发订阅？
-
-| 写法 | 会不会真正跑 |
+| 操作符 | 作用 |
 |---|---|
-| `return flux;` 给 Spring MVC / WebFlux Controller | 会。框架当订阅者，把 onNext 写成 HTTP |
-| `flux.subscribe(...)` | 会 |
-| `flux.block()` / `blockFirst()` / `blockLast()` | 会，而且当前线程等待结束 |
-| `flux.publish()` 之后不 `connect()` | **热源建好了，但没人连，数据不会按你以为的方式走** |
-| 只是把 Flux 赋值给变量 | 不会 |
+| `map` | 同步一对一转换 |
+| `flatMap` | 转换结果仍是 Mono/Flux 时摊平；内部可并发 |
+| `concatMap` | 同 flatMap，但一个接一个、保序 |
+| `filter` | 过滤 |
+| `zip` / `zipWith` | 多个 Mono 凑齐再往下 |
+| `then` | 忽略元素，只关心完成 |
+| `doOnNext` / `doOnError` / `doOnCancel` | 旁路日志，不改数据 |
+| `onErrorResume` / `onErrorReturn` | 失败降级 |
+| `timeout` | 超时 |
 
-所以 Controller **直接 `return Flux`** 是对的：Spring 会订阅。  
-你在方法里自己 `subscribe()` 再 return 另一个东西，往往会 **订两次** 或把数据订走，HTTP 层收到空流。
+`try/catch` 包不住已经返回的 `Mono` 里的异步错误。错误发生在订阅之后，要用 `onErrorResume` 这类操作符。
 
-**规则：Web 层把 Flux/Mono 当作返回值交出去，不要在业务里提前 subscribe。**
+### 4.3 冷流和热流
 
----
+| | 冷流 | 热流 |
+|---|---|---|
+| 何时开始 | 每次 subscribe 才开始 | 不管有没有人听，都可能在推 |
+| 订阅者 | 每人一份独立数据 | 共享正在发生的数据 |
+| HTTP 接口 | **该用冷流**：一次请求一次独立查询 | 直播、广播才用热流 |
 
-## 7. 必会操作符（够用应付 Spring AI）
+`Flux.just`、`Mono.fromCallable`、一次 HTTP 调用，都是冷流。`publish()` 会变成可连接的热源，一般 **不能直接当接口返回值**。
 
-操作符不改变原 Flux，而是 **返回一条新管道**。要链式写：
-
-```java
-Flux<String> result = source
-        .filter(...)
-        .map(...)
-        .doOnNext(...);
-```
-
-### 7.1 同步一对一：`map`
+### 4.4 线程切换
 
 ```java
-Flux<String> upper = Flux.just("a", "b").map(String::toUpperCase);
-// A, B
+.mono.subscribeOn(Schedulers.boundedElastic())  // 源头在哪个线程跑
+     .publishOn(Schedulers.parallel())           // 这之后的操作换线程
 ```
 
-给每个 token 加上前缀：
-
-```java
-chatService.stream(msg).map(token -> "data:" + token);
-```
-
-### 7.2 一对多 / 异步：`flatMap`、`concatMap`
-
-`map` 的函数如果返回 `Mono`/`Flux`，你会得到 `Flux<Flux<T>>`，这通常不是你想要的。要「摊平」用 `flatMap`：
-
-```java
-Flux<String> names = Flux.just("u1", "u2");
-Flux<User> users = names.flatMap(id -> findUser(id)); // findUser 返回 Mono<User>
-```
-
-区别：
-
-| 操作符 | 行为 |
+| Scheduler | 用途 |
 |---|---|
-| `flatMap` | 多个内部流可能 **并发交错** |
-| `concatMap` | **一个接一个**，保序 |
-| `switchMap` | 来了新元素就取消上一个内部流（搜索联想常用） |
+| `boundedElastic` | 不得已的阻塞 IO（包一层遗留 JDBC） |
+| `parallel` | CPU 计算 |
+| `immediate` | 当前线程 |
 
-流式对话一般已经是一条 `Flux<String>`，多数时候 `map` 就够。只有「每个 token 还要再调一次异步接口」才需要 `flatMap`。
-
-### 7.3 过滤、截取
-
-```java
-flux.filter(s -> !s.isBlank());
-flux.take(10);                 // 只要前 10 个
-flux.takeUntil(s -> s.contains("END"));
-flux.skip(1);
-```
-
-### 7.4 旁路观察（不改变数据）：`doOnXxx`
-
-调试神器：
-
-```java
-chatService.stream(msg)
-        .doOnSubscribe(sub -> log.info("开始流式输出"))
-        .doOnNext(token -> log.debug("token={}", token))
-        .doOnError(e -> log.error("模型失败", e))
-        .doOnComplete(() -> log.info("结束"))
-        .doOnCancel(() -> log.info("客户端断开，取消订阅"));
-```
-
-前端关掉 SSE 时，Spring 会取消订阅，`doOnCancel` 能看到。这对「别让模型在客户端走了之后还继续生成」很重要。
-
-### 7.5 合并多条流
-
-```java
-Flux.merge(fluxA, fluxB);       // 谁先到先发出（交错）
-Flux.concat(fluxA, fluxB);      // A 完了才 B
-Flux.zip(fluxA, fluxB, (a, b) -> a + b); // 成对组合
-```
-
-Spring AI 里较少用，但要知道 `merge` 不保序、`concat` 保序。
-
-### 7.6 变成「一个最终值」
-
-```java
-Mono<String> joined = tokens.reduce("", String::concat);
-Mono<List<String>> list = tokens.collectList();
-Mono<Void> done = tokens.then();          // 忽略元素，只关心完成
-```
-
-`then()` 适合「流结束后再做一件事」。
+正确做法是下游也非阻塞。实在要调阻塞库，必须切到 `boundedElastic`，否则事件循环被占满，表现会比 MVC 更差。
 
 ---
 
-## 8. 错误处理
+## 5. 两种写接口的方式
 
-流一旦 `onError`，默认直接失败给订阅者。Web 层就会变成 500 或 SSE 中断。
+### 5.1 注解式（和 MVC 最像）
 
-```java
-flux
-    .onErrorReturn("（生成失败，请重试）")           // 失败时发一个兜底元素然后完成
-    .onErrorResume(e -> Flux.just("降级回答"));     // 失败时换一条流
-```
+适合从 MVC 迁移、团队已经习惯 Controller。返回 `Mono<T>` / `Flux<T>` / `Mono<Void>` / `Mono<ResponseEntity<T>>`。
 
-按异常类型：
+SSE：
 
 ```java
-flux.onErrorResume(TimeoutException.class, e -> Flux.just("模型超时"));
-```
-
-超时本身：
-
-```java
-chatService.stream(msg)
-        .timeout(Duration.ofSeconds(60));
-```
-
-注意：`try/catch` **包不住** 已经返回的 `Flux` 里的异步错误。错误发生在订阅之后、别的线程上。要用操作符处理，而不是：
-
-```java
-try {
-    return chatService.stream(msg); // 这里只是在组装管道，还没执行
-} catch (Exception e) {
-    // 模型失败进不来这里
+@GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+public Flux<Item> stream() {
+    return itemService.stream();
 }
 ```
 
-参数校验这种 **组装管道之前** 的同步错误，用 `ResponseStatusException` 仍然合理，本仓库就是这样做的。
+### 5.2 函数式
+
+适合路由集中声明、按请求动态组装响应。核心类型：
+
+- `RouterFunction`：路由表
+- `HandlerFunction`：处理函数
+- `ServerRequest` / `ServerResponse`：请求和响应的响应式封装
+
+```java
+public Mono<ServerResponse> get(ServerRequest request) {
+    String id = request.pathVariable("id");
+    return userService.findById(id)
+            .flatMap(user -> ServerResponse.ok().bodyValue(user))
+            .switchIfEmpty(ServerResponse.notFound().build());
+}
+```
+
+选型：业务 CRUD 用注解更省事；网关、聚合层、路由特别多时用函数式更清晰。不是必须二选一。
 
 ---
 
-## 9. 背压（Backpressure）
+## 6. 和 Spring MVC 比：优点、缺点
 
-订阅者可以告诉发布者：「我一次只要 N 个」。这就是背压。
+### 6.1 WebFlux 的优点
 
-```java
-flux.subscribe(new BaseSubscriber<>() {
-    @Override
-    protected void hookOnSubscribe(Subscription subscription) {
-        request(1); // 先只要 1 个
-    }
+1. **高并发连接更省线程和内存**  
+   一万条空闲或慢连接，MVC 要庞大线程池；WebFlux 用少量事件线程挂住。
 
-    @Override
-    protected void hookOnNext(String value) {
-        process(value);
-        request(1); // 处理完再要下一个
-    }
-});
-```
+2. **天然适合流式响应**  
+   `Flux` + SSE / WebSocket 是一等公民，不用靠异步 Servlet 补丁硬拧。
 
-日常写 Spring AI **几乎不用手写 request**。`Flux` 默认是请求 `Long.MAX_VALUE`（要多少有多少）。背压在「消费者很慢、生产者很快」时才关键，例如磁盘写入跟不上 token 速度。
+3. **背压**  
+   下游写不出去时，上游可以少生产，降低 OOM 风险。
 
-LLM 场景更常见的是 **反面：生产者慢（模型一个字一个字吐），消费者快（网络/前端）**，所以背压很少成为你的第一痛点。先知道有这回事即可。
+4. **全链路非阻塞时，线程利用率高**  
+   Controller → WebClient → R2DBC 全程不睡线程，同样硬件能排更多等待中的请求。
 
----
+5. **函数式路由**  
+   MVC 也能写一点类似能力，但 WebFlux 把它做成正式模型，组合、嵌套、按条件装配路由更顺。
 
-## 10. 线程：`subscribeOn` 和 `publishOn`
+### 6.2 WebFlux 的缺点
 
-Reactor 默认很多操作在 **订阅发生的那个线程** 上跑。Web 里通常是 Tomcat / Netty 的事件线程。
+1. **学习成本高**  
+   要建立「管道 / 订阅 / 冷热流 / 不要阻塞事件线程」这套心智。同一段业务，代码往往比 MVC 更绕。
 
-```java
-flux.subscribeOn(Schedulers.boundedElastic()); // 决定「源头」在哪 generate
-flux.publishOn(Schedulers.parallel());         // 决定「下游操作符」在哪执行
-```
+2. **阻塞生态接不上**  
+   MyBatis、JPA、很多 SDK、文件 API 都是阻塞的。硬接会毁掉事件循环。要么换 R2DBC / 响应式驱动，要么把阻塞调用隔离到弹性线程池——后者等于混用两套模型，复杂度上去，收益下降。
 
-| API | 作用 |
-|---|---|
-| `subscribeOn` | 影响整条链的订阅/源头执行线程，一般放一次就够 |
-| `publishOn` | 从它之后的操作换线程 |
+3. **ThreadLocal 基本失效**  
+   一次请求会在不同线程的回调里继续。日志 TraceId、简单的上下文传递要用 Reactor Context / `ContextSnapshot`，不能靠 `ThreadLocal`。
 
-`Schedulers.boundedElastic()`：适合 **阻塞 IO**（JDBC、阻塞 HTTP、`Thread.sleep`）。  
-`Schedulers.parallel()`：适合 CPU 计算。  
-`Schedulers.immediate()`：当前线程。
+4. **调试和排错更难**  
+   堆栈是操作符链，断点打在 `map` 里看到的线程不是请求进来的那条。链路追踪也要按响应式方式接。
 
-**铁律：不要在 Netty/事件线程里调用阻塞 API。**  
-例如在 `map` 里 `restTemplate.getForObject(...)` 或 `Thread.sleep`。若必须阻塞，先 `publishOn(boundedElastic())`，或一开始就不要把那段逻辑放进响应式链。
+5. **对 CPU 密集、简单 CRUD 没有优势**  
+   计算型和短平快接口，瓶颈在 CPU 或单次查询，不在线程数。这时 WebFlux 只增加心智负担。
 
-Spring AI 的 `stream()` 已经把模型的异步 IO 包好了，入门阶段 **不必自己切线程**。等你真的在 `Flux` 里调了 JDBC，再加 Scheduler。
+6. **人才和库的成熟度不如 MVC**  
+   问题更少人踩过；部分中间件只有阻塞客户端。
 
----
+7. **和 MVC 不能当两套服务端叠在同一个应用里混用**  
+   可以在 MVC 应用里用 Reactor 类型做返回值（见第 8 节），但那不是 WebFlux 服务器。真正的运行时只能二选一。
 
-## 11. 热流、`publish()`，以及为什么它不能当接口返回值
+### 6.3 对照表
 
-这是本仓库旧代码踩过的坑。
-
-```java
-// 错误示范（旧写法）
-return ollamaChatModel.stream(prompt).publish();
-```
-
-### 11.1 冷流 vs 热流
-
-| | 冷流（Cold） | 热流（Hot） |
+| 维度 | Spring MVC | Spring WebFlux |
 |---|---|---|
-| 何时开始 | 每次 subscribe 才开始 | 不管有没有人听，都可能在推 |
-| 订阅者关系 | 每个订阅者一份独立数据 | 大家共享同一份正在发生的数据 |
-| 例子 | `Flux.just`、`stream().content()` | `Flux.interval` 在 `publish().connect()` 之后、广播 |
-
-`publish()` 把冷流变成 `ConnectableFlux`（可连接的热源）：
-
-- **还没 `connect()` / `autoConnect()`**：没有真正向源头要数据
-- **返回类型是 `ConnectableFlux`**，不是给 HTTP 用的普通 `Flux`
-- Spring 即便订阅了它，语义也和「这条请求专属的 token 流」对不上：热流是广播模型，HTTP 每个请求需要的是 **冷流（一次订阅 = 一次独立的模型调用）**
-
-### 11.2 正确做法
-
-把 **冷的** `Flux<String>` 直接返回：
-
-```java
-return chatClient.prompt().user(message).stream().content();
-```
-
-每个 HTTP 请求订阅一次 → 触发一次模型流式调用 → 该客户端断开则 cancel。这正是冷流该有的行为。
-
-只有「多个订阅者要共享同一场直播」才用 `publish()`。Chat 接口不是直播，是一对一会话。
+| 开发效率 | 高，心智负担低 | 低，要熟悉 Reactor |
+| 简单 CRUD | 更合适 | 能写，但没收益 |
+| 高并发长连接 | 线程和内存先顶不住 | 强项 |
+| 流式推送 | 能做，不是第一公民 | 第一公民 |
+| JDBC / MyBatis | 原生就合适 | 别在事件线程用 |
+| RestTemplate | 常用 | 改用 WebClient |
+| 事务 | Spring 声明式事务成熟 | 响应式事务模型不同，R2DBC 事务能力也更窄 |
+| 监控排障 | 线程 dump 直观 | 需要熟悉 Reactor / Netty |
+| 团队门槛 | 低 | 高 |
 
 ---
 
-## 12. Spring MVC 返回 Flux ≠ 已经换成 WebFlux 应用
+## 7. 什么时候用 WebFlux，什么时候不要
 
-名字很容易混：
+**值得用：**
 
-| 概念 | 是什么 |
+- 大量长连接：SSE、WebSocket、长轮询
+- 网关 / BFF：一个请求要扇出调很多下游 HTTP，且都是 IO 等待
+- 下游已经是响应式（R2DBC、Reactive Redis、WebClient），希望整条链不阻塞
+- 连接数是容量瓶颈，而不是单次请求的 CPU
+
+**不要为了用而用：**
+
+- 普通后台管理、CRUD、报表
+- 核心路径必须走 MyBatis / JPA / 阻塞 SDK，短期内不打算换
+- 团队没有响应式编程经验，也没有高并发长连接的真实压力
+- 把「返回类型改成 Mono」当成性能优化——底下还是阻塞 IO 的话，只会更慢
+
+经验法则：**先有「连接数 / 等待时间」的压力，再上 WebFlux；没有压力就用 MVC。**
+
+---
+
+## 8. 几个容易混的概念
+
+### 8.1 Spring Boot ≠ Spring MVC ≠ WebFlux
+
+- **Spring Boot**：自动配置、起步依赖、内嵌服务器。
+- **Spring MVC**：Servlet 栈上的 Web 框架。
+- **Spring WebFlux**：响应式栈上的 Web 框架。
+
+说「用 Spring Boot」没有指定 Web 层。要说清楚是 MVC 还是 WebFlux。
+
+### 8.2 在 MVC 里返回 Flux，仍然不是 WebFlux 应用
+
+`spring-boot-starter-web` 的项目，只要 classpath 有 Reactor，Controller 也可以 `return Flux`，并做成 SSE。那是 **MVC + Reactor**，运行时还是 Tomcat 线程池，不是 Netty 事件循环。
+
+| 你做了什么 | 实际用的是 |
 |---|---|
-| Reactor | `Mono`/`Flux` 库，谁都能用 |
-| Spring WebFlux | 基于 Netty（默认）的 **响应式 Web 框架**，`spring-boot-starter-webflux` |
-| Spring MVC | 基于 Servlet 的 Web 框架，`spring-boot-starter-web` |
-| SSE | HTTP 响应模式：`Content-Type: text/event-stream`，一条连接持续推 event |
+| 只加了 Reactor，MVC 返回 `Flux` | Spring MVC + Reactor |
+| 依赖换成 `starter-webflux`，服务器是 Netty | Spring WebFlux |
+| 只用 `WebClient` | 客户端能力，和服务端是不是 WebFlux 无关 |
 
-本仓库 `core` 目前用的是 **`spring-boot-starter-web`（MVC）**。classpath 上有 Reactor 时，MVC 仍然可以：
+### 8.3 Reactor 不是 WebFlux
 
-- 方法返回 `Flux<T>`
-- `produces = TEXT_EVENT_STREAM_VALUE`
-- 由 `ReactiveTypeHandler` 订阅 Flux，写成 SSE
+**Project Reactor** 是 `Mono`/`Flux` 那套库。WebFlux **用** Reactor 做编程模型。命令行程序、消息消费、Spring AI 都可以只用 Reactor，不引入 WebFlux。
 
-所以：**你在 MVC 里返回 `Flux`，用的是 Reactor + SSE，还不是一个 WebFlux 服务器。**
+### 8.4 异步 Servlet ≠ WebFlux
 
-什么时候才需要真正上 WebFlux？
-
-- 要 `WebClient` 的非阻塞调用链贯穿全程
-- 要 `ServerRequest` / `RouterFunction` 函数式端点
-- 要避免 Servlet 线程模型，用 Netty 扛大量长连接
-
-学 Spring AI 流式输出，**先掌握 Flux + SSE 就够**。不必一上来把项目改成 WebFlux。
-
-```mermaid
-flowchart TB
-    subgraph mvc [当前 core 模块]
-        C[Controller 返回 Flux]
-        R[Spring MVC ReactiveTypeHandler]
-        SSE[SSE 写出到客户端]
-        C --> R --> SSE
-    end
-    subgraph lib [Reactor]
-        F[ChatClient.stream 得到 Flux]
-    end
-    F --> C
-```
+Servlet 3.1 的 `AsyncContext`、MVC 的 `DeferredResult` / `SseEmitter` 也能异步写出。它们仍活在 Servlet 容器里，没有 Reactor 那套管线、背压和统一的 `WebClient` 模型。WebFlux 是另一条栈，不是 MVC 异步的升级开关。
 
 ---
 
-## 13. SSE：流式对话的 HTTP 协议
+## 9. 建议学习顺序
 
-SSE（Server-Sent Events）是浏览器原生支持的 **单向服务器推送**。
+1. 分清 Boot / MVC / WebFlux / Reactor 四个词。
+2. 搞懂 MVC 和 WebFlux 的线程差异（第 3 节）。看完应能回答：为什么不能在 WebFlux 里直接调 JDBC。
+3. 用 `Mono.just` / `Flux.range` + `subscribe` / `block` 看 `onNext`、`onError`、`onComplete`。
+4. 写一个只有内存数据的 WebFlux Controller：`Mono` 返回一条，`Flux` 返回列表。
+5. 加上 `map`、`flatMap`、`switchIfEmpty`、`onErrorResume`。
+6. 用 `WebClient` 调一个下游 HTTP，体会非阻塞调用链。
+7. 写一个 SSE 接口，用 curl `-N` 看持续输出。
+8. 最后才是 `WebFilter`、函数式路由、Scheduler、和 R2DBC 对接。
 
-- 客户端：`EventSource` 或 fetch 读 stream
-- 服务端：`Content-Type: text/event-stream`
-- 报文形态：
-
-```
-data: 你
-
-data: 好
-
-data: 世界
-
-```
-
-每个 `data:` 行对应 Flux 的一次 `onNext`（框架会帮你编码）。流完成则连接结束。
-
-本仓库接口：
-
-```
-POST /springAi/chat/stream
-Content-Type: application/json
-Accept: text/event-stream
-
-{"message":"你好"}
-```
-
-本地可用：
-
-```bash
-curl -N -X POST 'http://localhost:8080/springAi/chat/stream' \
-  -H 'Content-Type: application/json' \
-  -H 'Accept: text/event-stream' \
-  -d '{"message":"用一句话介绍 Flux"}'
-```
-
-`-N` 关闭缓冲，才能马上看到 token。
-
-和 WebSocket 的区别（够用版）：
-
-| | SSE | WebSocket |
-|---|---|---|
-| 方向 | 服务器 → 客户端 | 双工 |
-| 协议 | 就是 HTTP | 单独升级协议 |
-| Spring AI 流式聊天 | 非常合适 | 也能做，更重 |
-| 浏览器 | `EventSource` | `WebSocket` |
-
-Chat 生成不需要客户端中途狂发二进制帧，SSE 足够。
+前 5 步不过关，后面的「性能」和「背压」都会是空话。
 
 ---
 
-## 14. 对照本仓库：同步 vs 流式
+## 10. 读完应能回答的问题
 
-`ChatService`：
-
-```java
-String chat(String message);     // 等整句
-Flux<String> stream(String message); // token 流
-```
-
-| | `/chat/message` | `/chat/stream` |
-|---|---|---|
-| Spring AI | `.call().content()` | `.stream().content()` |
-| 返回 | `ChatMessageResponse` | `Flux<String>` |
-| HTTP | 普通 JSON，一次 body | SSE，多次 data |
-| 线程 | 调用期间堵住工作线程直到模型说完 | 有 token 就推，不断开连接 |
-| 前端体验 | 转圈等到全部结束 | 打字机效果 |
-
-`call()` 对调用方是同步 API，内部实现不必关心。`stream()` 把响应式暴露出来，所以 Controller 必须会处理 `Flux`。
-
----
-
-## 15. Spring AI 里还会见到的写法
-
-### 15.1 流式拿完整 ChatResponse
-
-```java
-Flux<ChatResponse> responses = chatClient.prompt()
-        .user(msg)
-        .stream()
-        .chatResponse();
-```
-
-比 `.content()` 信息多（finishReason、metadata）。入门先用 `.content()`。
-
-### 15.2 把 Flux 接到 WebClient
-
-以后用 WebFlux 的 `WebClient` 调别的流式接口：
-
-```java
-WebClient.create("http://localhost:8080")
-        .post()
-        .uri("/springAi/chat/stream")
-        .contentType(MediaType.APPLICATION_JSON)
-        .accept(MediaType.TEXT_EVENT_STREAM)
-        .bodyValue(new ChatMessageRequest("你好"))
-        .retrieve()
-        .bodyToFlux(String.class)
-        .doOnNext(System.out::println)
-        .blockLast(); // 命令行小工具可以 blockLast；服务端请继续往外 return
-```
-
-`WebClient` 是 WebFlux 栈的 HTTP 客户端，即使你的服务端仍是 MVC，也可以单独用它。
-
-### 15.3 `block()` 只用在边界
-
-| 可以 block | 不要 block |
-|---|---|
-| `main`、单元测试、CommandLineRunner | Controller / WebFlux 事件线程 |
-| 明确的同步门面（你已经提供了 `chat()`） | 已经在 `stream()` 管道中间 |
-
-`chat()` 这种同步方法，本质就是在门面里把响应式结果挡住、等齐。这是有意识的 API 设计，不是在响应式链中间随手 `block()`。
-
----
-
-## 16. 最小可运行实验（不改业务代码也能练）
-
-在任意 `main` 或测试里：
-
-```java
-Flux.just("学", "习", "Flux")
-        .delayElements(Duration.ofMillis(300))
-        .doOnNext(s -> System.out.println(Thread.currentThread().getName() + " -> " + s))
-        .blockLast();
-```
-
-观察：三个元素隔 300ms 出现，这就是「随时间展开的序列」。
-
-再试取消：
-
-```java
-Disposable d = Flux.interval(Duration.ofMillis(200))
-        .doOnNext(i -> System.out.println(i))
-        .doOnCancel(() -> System.out.println("cancelled"))
-        .subscribe();
-
-Thread.sleep(1000);
-d.dispose(); // 等价于取消订阅
-```
-
-HTTP 客户端断开 SSE，框架做的就是类似 `dispose()`。
-
----
-
-## 17. 常见陷阱
-
-1. **把 `Flux` 当 `List` 用**  
-   `flux.get(0)` 不存在。要第一个用 `next().block()`，要全部用 `collectList()`。
-
-2. **在返回 Flux 之前自己 subscribe**  
-   数据被你的订阅消费掉，HTTP 可能什么都收不到，或模型被调两次。
-
-3. **`publish()` 当返回值**  
-   热流 + 未连接，语义和 Chat 一对一请求相反。
-
-4. **用 try/catch 包 Flux 管道**  
-   异步错误要用 `onErrorResume` / `doOnError`。
-
-5. **在 `map` 里跑阻塞调用**  
-   事件线程被占满，看起来像「WebFlux 还不如 MVC」。
-
-6. **忘记 `produces = TEXT_EVENT_STREAM_VALUE`**  
-   有的客户端会按 JSON 一次解析，流式失效或缓冲到结束。
-
-7. **`Flux.interval` 在测试里不结束**  
-   无限流必须 `take(...)` 或 `dispose()`，否则 `blockLast()` 永远等。
-
-8. **以为上了 `Flux` 就是 WebFlux 项目**  
-   本模块仍是 Servlet MVC。Flux 只是返回类型。
-
----
-
-## 18. 建议学习顺序
-
-1. 用 `Flux.just` + `subscribe` / `blockLast` 看 onNext、onComplete。  
-2. 加上 `map`、`filter`、`doOnNext`。  
-3. 理解「不订阅不执行」。  
-4. 看懂本仓库 `/chat/message` vs `/chat/stream`。  
-5. 用 curl `-N` 看 SSE。  
-6. 再学 `onErrorResume`、`doOnCancel`。  
-7. 最后才是 Scheduler、WebClient、真正的 `spring-boot-starter-webflux`。
-
-学 Spring AI，到第 6 步就已经能覆盖 90% 的流式对话代码。第 7 步留给「网关式聚合多个模型流」或「全链路非阻塞」再展开。
-
----
-
-## 19. 和本文相关的仓库代码
-
-| 文件 | 看什么 |
-|---|---|
-| `spring-ai/core/.../service/ChatService.java` | 同步 `String` 与流式 `Flux<String>` 的接口划分 |
-| `spring-ai/core/.../service/impl/ChatServiceImpl.java` | `call()` vs `stream().content()` |
-| `spring-ai/core/.../chat/BaseChatController.java` | MVC 返回 Flux + SSE |
-
-读代码时带着三个问题：
-
-1. 这条 `Flux` 的订阅者是谁？（答案：Spring MVC）  
-2. 它是冷流还是热流？（答案：冷流，一次请求一次模型调用）  
-3. 客户端断开后会发生什么？（答案：取消订阅，上游流应停止）
-
-能回答这三个问题，WebFlux 入门就算过关，可以继续安心学 Spring AI 的 Advisor、Tool 和 RAG。
+1. WebFlux 是 Web 框架，不是 Spring Boot 的替代品。
+2. 它的功能：非阻塞服务端、注解式和函数式路由、Mono/Flux、WebClient、SSE、WebSocket、WebFilter、校验与异常、WebSession、Security、WebTestClient、背压。
+3. 相对 MVC 的核心优势是 **高并发连接下的线程与内存**，以及 **流式 IO**；核心代价是 **编程模型和阻塞生态**。
+4. 简单 CRUD、MyBatis 为主的应用，继续用 MVC。
+5. 只有服务端换成 `starter-webflux`（通常是 Netty）才叫 WebFlux 应用；MVC 里返回 `Flux` 只是借用了 Reactor。

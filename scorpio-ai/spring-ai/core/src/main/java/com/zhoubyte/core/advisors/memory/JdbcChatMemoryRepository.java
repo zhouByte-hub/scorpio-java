@@ -1,7 +1,10 @@
 package com.zhoubyte.core.advisors.memory;
 
+import com.zhoubyte.core.pojo.entity.ChatMemoryEntity;
+import com.zhoubyte.core.pojo.entity.MemoryAggregationEntity;
 import com.zhoubyte.core.service.ChatMemoryService;
 import com.zhoubyte.core.service.MemoryAggregationService;
+import icu.mhb.mybatisplus.plugln.core.JoinLambdaWrapper;
 import org.springframework.ai.chat.memory.ChatMemoryRepository;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.stereotype.Component;
@@ -12,21 +15,24 @@ import java.util.List;
 public class JdbcChatMemoryRepository implements ChatMemoryRepository {
 
     private final ChatMemoryService chatMemoryService;
-    private final MemoryAggregationService memoryAggregationService;
 
-    public JdbcChatMemoryRepository(ChatMemoryService chatMemoryService, MemoryAggregationService memoryAggregationService) {
+    public JdbcChatMemoryRepository(ChatMemoryService chatMemoryService) {
         this.chatMemoryService = chatMemoryService;
-        this.memoryAggregationService = memoryAggregationService;
     }
 
     @Override
     public List<String> findConversationIds() {
-
-        return List.of();
+        JoinLambdaWrapper<ChatMemoryEntity> wrapper = new JoinLambdaWrapper<>(ChatMemoryEntity.class);
+        wrapper.select(ChatMemoryEntity::getAggregationId)
+                .leftJoin(MemoryAggregationEntity.class, MemoryAggregationEntity::getId, ChatMemoryEntity::getAggregationId)
+                .distinct()
+                .end();
+        return chatMemoryService.joinList(wrapper, String.class);
     }
 
     @Override
     public List<Message> findByConversationId(String conversationId) {
+
         return List.of();
     }
 
