@@ -1,0 +1,12 @@
+server:
+  port: 8080
+spring:
+  datasource:
+    username: root
+    password: 123456
+    url: jdbc:p6spy:mysql://localhost:13306/test-db?serverTimezone=Asia/Shanghai
+    driver-class-name: com.p6spy.engine.spy.P6SpyDriver
+
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl

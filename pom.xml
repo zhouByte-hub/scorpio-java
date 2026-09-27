@@ -15,6 +15,7 @@
         <module>workflow</module>
         <module>scorpio-aspose</module>
         <module>scorpio-ai</module>
+        <module>scorpio-mybatis-join</module>
     </modules>
 
     <properties>
