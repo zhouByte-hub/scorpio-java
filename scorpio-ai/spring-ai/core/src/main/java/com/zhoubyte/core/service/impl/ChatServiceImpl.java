@@ -28,9 +28,10 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
-    public Flux<String> stream(String message) {
+    public Flux<String> stream(String message, String conversationId) {
         return chatClient.prompt()
                 .user(requireMessage(message))
+                .advisors(spec -> spec.param("chat_memory_conversation_id", conversationId))
                 .stream()
                 .content();
     }

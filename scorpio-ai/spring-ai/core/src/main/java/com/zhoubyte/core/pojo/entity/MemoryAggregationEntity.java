@@ -2,7 +2,7 @@ package com.zhoubyte.core.pojo.entity;
 
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.baomidou.mybatisplus.extension.handlers.Fastjson2TypeHandler;
 import icu.mhb.mybatisplus.plugln.annotations.JoinChainModel;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -15,7 +15,7 @@ import java.util.List;
 @TableName(value = "msg_aggregation", autoResultMap = true)
 public class MemoryAggregationEntity extends BaseEntity{
 
-    @TableField(value = "content", typeHandler = JacksonTypeHandler.class)
+    @TableField(value = "content", typeHandler = Fastjson2TypeHandler.class)
     private List<AggregationContent> content;
 
     @TableField("compression")
@@ -27,8 +27,8 @@ public class MemoryAggregationEntity extends BaseEntity{
     @TableField("current_size")
     private Float currentSize;
 
+    public record AggregationContent(String type, String content){
 
-    public record AggregationContent(String type, String content) {
     }
 
 }

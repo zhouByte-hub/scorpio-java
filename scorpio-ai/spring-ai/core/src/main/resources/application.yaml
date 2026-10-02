@@ -27,4 +27,7 @@ spring:
       host: localhost
       port: 16379
 
+scorpio:
+  memory-size: 32
+
 

@@ -31,6 +31,6 @@ public class BaseChatController {
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<String> stream(@RequestBody ChatMessageRequest request) {
-        return chatService.stream(request == null ? null : request.message());
+        return chatService.stream(request == null ? null : request.message(), request.conversationId());
     }
 }

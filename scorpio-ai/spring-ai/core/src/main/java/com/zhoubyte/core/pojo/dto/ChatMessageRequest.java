@@ -1,4 +1,4 @@
 package com.zhoubyte.core.pojo.dto;
 
-public record ChatMessageRequest(String message) {
+public record ChatMessageRequest(String message, String conversationId) {
 }

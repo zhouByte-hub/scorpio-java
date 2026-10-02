@@ -1,6 +1,7 @@
 package com.zhoubyte.core.advisors.memory;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.zhoubyte.core.config.ScorpioConfig;
 import com.zhoubyte.core.mapper.ChatMemoryMapper;
 import com.zhoubyte.core.mapper.MemoryAggregationMapper;
 import com.zhoubyte.core.pojo.entity.ChatMemoryEntity;
@@ -9,27 +10,27 @@ import com.zhoubyte.core.pojo.entity.chain.ChatMemoryEntityChain;
 import com.zhoubyte.core.pojo.entity.chain.MemoryAggregationEntityChain;
 import icu.mhb.mybatisplus.plugln.extend.Joins;
 import io.micrometer.common.util.StringUtils;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.springframework.ai.chat.memory.ChatMemoryRepository;
 import org.springframework.ai.chat.messages.*;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import java.nio.charset.StandardCharsets;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 
 @Component
 @Slf4j
+@RequiredArgsConstructor
 public class JdbcChatMemoryRepository implements ChatMemoryRepository {
 
     private final ChatMemoryMapper chatMemoryMapper;
     private final MemoryAggregationMapper memoryAggregationMapper;
-
-    public JdbcChatMemoryRepository(ChatMemoryMapper chatMemoryMapper, MemoryAggregationMapper memoryAggregationMapper) {
-        this.chatMemoryMapper = chatMemoryMapper;
-        this.memoryAggregationMapper = memoryAggregationMapper;
-    }
+    private final ScorpioConfig scorpioConfig;
 
     @Override
     public List<String> findConversationIds() {
@@ -44,6 +45,9 @@ public class JdbcChatMemoryRepository implements ChatMemoryRepository {
     @Override
     public List<Message> findByConversationId(String conversationId) {
         MemoryAggregationEntity memoryAggregationEntity = memoryAggregationMapper.selectById(conversationId);
+        if(memoryAggregationEntity == null) {
+            return List.of();
+        }
         return memoryAggregationEntity.getContent().stream()
                 .filter(Objects::nonNull)
                 .map(msg -> {
@@ -64,58 +68,50 @@ public class JdbcChatMemoryRepository implements ChatMemoryRepository {
      */
     @Transactional(rollbackFor = Exception.class)
     @Override
-    public void saveAll(String conversationId, List<Message> messages) {
+    public void saveAll(@NonNull String conversationId, @NonNull List<Message> messages) {
         if (StringUtils.isBlank(conversationId)) {
             throw new IllegalArgumentException("conversationId 不能为空");
         }
-        List<Message> savedMessages = messages == null
-                ? List.of()
-                : messages.stream().filter(Objects::nonNull).toList();
-        chatMemoryMapper.delete(Wrappers.<ChatMemoryEntity>lambdaUpdate()
-                .eq(ChatMemoryEntity::getConversationId, conversationId));
-        if (savedMessages.isEmpty()) {
-            memoryAggregationMapper.deleteById(conversationId);
+        if(messages == null || messages.isEmpty()) {
             return;
         }
+        MemoryAggregationEntity memoryAggregationEntity = Joins.of(ChatMemoryEntity.class)
+                .innerJoin(MemoryAggregationEntity.class, MemoryAggregationEntity::getId, ChatMemoryEntity::getAggregationId)
+                .selectAll()
+                .end()
+                .joinGetOne(MemoryAggregationEntity.class);
 
-        LocalDateTime now = LocalDateTime.now();
-        List<MemoryAggregationEntity.AggregationContent> contents = savedMessages.stream()
-                .map(message -> new MemoryAggregationEntity.AggregationContent(
-                        message.getMessageType().getValue(), message.getText()))
-                .toList();
-        float currentSize = savedMessages.stream()
-                .map(Message::getText)
-                .filter(Objects::nonNull)
-                .mapToInt(String::length)
-                .sum();
-        MemoryAggregationEntity aggregation = memoryAggregationMapper.selectById(conversationId);
-        if (aggregation == null) {
-            aggregation = new MemoryAggregationEntity();
-            aggregation.setId(conversationId);
-            aggregation.setContent(contents);
-            aggregation.setCompression(0);
-            aggregation.setLastSize(0F);
-            aggregation.setCurrentSize(currentSize);
-            aggregation.setCreateTime(now);
-            aggregation.setUpdateTime(now);
-            memoryAggregationMapper.insert(aggregation);
-        } else {
-            aggregation.setLastSize(aggregation.getCurrentSize() == null ? 0F : aggregation.getCurrentSize());
-            aggregation.setContent(contents);
-            aggregation.setCurrentSize(currentSize);
-            aggregation.setUpdateTime(now);
-            memoryAggregationMapper.updateById(aggregation);
+        List<MemoryAggregationEntity.AggregationContent> content = null;
+        Boolean isUpdate = false;
+        if(memoryAggregationEntity == null) {
+            memoryAggregationEntity = new MemoryAggregationEntity();
+            content = new LinkedList<>();
+        }else {
+            content = memoryAggregationEntity.getContent();
+            isUpdate = true;
         }
-
-        for (Message message : savedMessages) {
-            ChatMemoryEntity entity = new ChatMemoryEntity();
-            entity.setConversationId(conversationId);
-            entity.setAggregationId(conversationId);
-            entity.setMessageType(message.getMessageType().getValue());
-            entity.setMessage(message.getText());
-            entity.setCreateTime(now);
-            entity.setUpdateTime(now);
-            chatMemoryMapper.insert(entity);
+        List<ChatMemoryEntity> chatMemoryEntities = new LinkedList<>();
+        for (Message message : messages) {
+            MemoryAggregationEntity.AggregationContent aggregationContent
+                    = new MemoryAggregationEntity.AggregationContent(message.getMessageType().getValue(), message.getText());
+            content.add(aggregationContent);
+            chatMemoryEntities.add(ChatMemoryEntity.of(message, memoryAggregationEntity.getId(), conversationId));
+        }
+        memoryAggregationEntity.setContent(content);
+        // todo 计算content大小进行压缩
+//        if(contentSize(content) >= scorpioConfig.getMemorySize()) {
+//
+//        }
+        String aggId = memoryAggregationEntity.getId();
+        if(isUpdate) {
+            memoryAggregationMapper.updateById(memoryAggregationEntity);
+        }else{
+            memoryAggregationMapper.insert(memoryAggregationEntity);
+            aggId = memoryAggregationEntity.getId();
+        }
+        for (ChatMemoryEntity chatMemoryEntity : chatMemoryEntities) {
+            chatMemoryEntity.setAggregationId(aggId);
+            chatMemoryMapper.insert(chatMemoryEntity);
         }
     }
 
@@ -141,5 +137,19 @@ public class JdbcChatMemoryRepository implements ChatMemoryRepository {
         if (memoryAggregationMapper.deleteById(aggregationId) <= 0) {
             throw new RuntimeException("删除会话压缩信息失败");
         }
+    }
+
+    private float contentSize(List<MemoryAggregationEntity.AggregationContent> content) {
+        if (content == null || content.isEmpty()) {
+            return 0F;
+        }
+        int bytes = 0;
+        for (MemoryAggregationEntity.AggregationContent item : content) {
+            if (item == null || item.content() == null) {
+                continue;
+            }
+            bytes += item.content().getBytes(StandardCharsets.UTF_8).length;
+        }
+        return bytes;
     }
 }

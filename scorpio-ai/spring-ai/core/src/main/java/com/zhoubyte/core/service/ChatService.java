@@ -6,5 +6,5 @@ public interface ChatService {
 
     String chat(String message);
 
-    Flux<String> stream(String message);
+    Flux<String> stream(String message, String conversationId);
 }

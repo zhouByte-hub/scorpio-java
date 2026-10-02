@@ -16,16 +16,16 @@ public class MessageMysqlChatMemory implements ChatMemory {
 
     @Override
     public void add(String conversationId, List<Message> messages) {
-
+        jdbcChatMemoryRepository.saveAll(conversationId, messages);
     }
 
     @Override
     public List<Message> get(String conversationId) {
-        return List.of();
+        return jdbcChatMemoryRepository.findByConversationId(conversationId);
     }
 
     @Override
     public void clear(String conversationId) {
-
+        jdbcChatMemoryRepository.deleteByConversationId(conversationId);
     }
 }
