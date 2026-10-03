@@ -21,16 +21,29 @@ public class RedisConfig {
 
     @Bean
     public RedisClient redisClient(){
-        DefaultJedisClientConfig redisClientConfig = DefaultJedisClientConfig.builder()
-                .hostAndPortMapper(hostAndPort -> new HostAndPort(host, port))
+//        DefaultJedisClientConfig redisClientConfig = DefaultJedisClientConfig.builder()
+//                .hostAndPortMapper(hostAndPort -> new HostAndPort(host, port))
+//                .database(database)
+//                .connectionTimeoutMillis(connectTimeout)
+//                .credentials(new DefaultRedisCredentials("", password))
+//                .build();
+//        return RedisClient.builder()
+//                .clientConfig(redisClientConfig)
+//                .build();
+        DefaultJedisClientConfig.Builder configBuilder = DefaultJedisClientConfig.builder()
                 .database(database)
-                .connectionTimeoutMillis(connectTimeout)
-                .credentials(new DefaultRedisCredentials("", password))
-                .build();
+                .connectionTimeoutMillis(connectTimeout);
+        // 不传 user，内部 user = null → 发单参数 AUTH pass
+        if (password != null && !password.isBlank()) {
+            configBuilder.password(password);
+        }
+
         return RedisClient.builder()
-                .clientConfig(redisClientConfig)
+                .hostAndPort(host, port)
+                .clientConfig(configBuilder.build())
                 .build();
     }
+
 
 
     @Bean
@@ -38,6 +51,7 @@ public class RedisConfig {
         return RedisVectorStore.builder(redisClient, embeddingModel)
                 .prefix("scorpio-")
                 .distanceMetric(RedisVectorStore.DistanceMetric.COSINE)
+                .initializeSchema(true)
                 .build();
     }
 }

@@ -9,6 +9,7 @@ import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @Slf4j
@@ -26,7 +27,7 @@ public class RagServiceImpl implements RagService {
             throw new RuntimeException("data is empty");
         }
         Document document = Document.builder()
-                .id("ID_123")
+                .id(UUID.randomUUID().toString())
                 .score(10d)
                 .text(data)
                 .build();
