@@ -82,7 +82,7 @@ public class JdbcChatMemoryRepository implements ChatMemoryRepository {
                 .joinGetOne(MemoryAggregationEntity.class);
 
         List<MemoryAggregationEntity.AggregationContent> content = null;
-        Boolean isUpdate = false;
+        boolean isUpdate = false;
         if(memoryAggregationEntity == null) {
             memoryAggregationEntity = new MemoryAggregationEntity();
             content = new LinkedList<>();

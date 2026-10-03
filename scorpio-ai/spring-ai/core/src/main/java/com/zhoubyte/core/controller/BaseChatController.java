@@ -3,6 +3,7 @@ package com.zhoubyte.core.controller;
 import com.zhoubyte.core.pojo.dto.ChatMessageRequest;
 import com.zhoubyte.core.pojo.dto.ChatMessageResponse;
 import com.zhoubyte.core.service.ChatService;
+import lombok.NonNull;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -30,7 +31,7 @@ public class BaseChatController {
             value = "/stream",
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<String> stream(@RequestBody ChatMessageRequest request) {
-        return chatService.stream(request == null ? null : request.message(), request.conversationId());
+    public Flux<String> stream(@RequestBody @NonNull ChatMessageRequest request) {
+        return chatService.stream(request.message(), request.conversationId());
     }
 }

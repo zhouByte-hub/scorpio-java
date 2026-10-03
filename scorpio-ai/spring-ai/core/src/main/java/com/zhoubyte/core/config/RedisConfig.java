@@ -6,7 +6,7 @@ import org.springframework.ai.vectorstore.redis.RedisVectorStore;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import redis.clients.jedis.RedisClient;
+import redis.clients.jedis.*;
 
 @Configuration
 @ConfigurationProperties(prefix = "spring.data.redis")
@@ -15,11 +15,20 @@ public class RedisConfig {
 
     private String host;
     private Integer port;
+    private String password;
+    private Integer database;
+    private Integer connectTimeout;
 
     @Bean
     public RedisClient redisClient(){
+        DefaultJedisClientConfig redisClientConfig = DefaultJedisClientConfig.builder()
+                .hostAndPortMapper(hostAndPort -> new HostAndPort(host, port))
+                .database(database)
+                .connectionTimeoutMillis(connectTimeout)
+                .credentials(new DefaultRedisCredentials("", password))
+                .build();
         return RedisClient.builder()
-                .hostAndPort(host, port)
+                .clientConfig(redisClientConfig)
                 .build();
     }
 
