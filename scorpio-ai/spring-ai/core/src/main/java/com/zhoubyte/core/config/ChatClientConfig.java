@@ -1,10 +1,10 @@
 package com.zhoubyte.core.config;
 
+import com.zhoubyte.core.tools.TimeTools;
 import io.micrometer.observation.ObservationRegistry;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.ToolCallingAdvisor;
-import org.springframework.ai.chat.client.advisor.api.Advisor;
 import org.springframework.ai.chat.client.advisor.api.BaseAdvisor;
 import org.springframework.ai.chat.client.advisor.observation.AdvisorObservationConvention;
 import org.springframework.ai.chat.client.observation.ChatClientObservationConvention;
@@ -13,12 +13,13 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.model.chat.client.autoconfigure.ChatClientBuilderConfigurer;
 import org.springframework.ai.ollama.OllamaChatModel;
 import org.springframework.ai.ollama.api.OllamaChatOptions;
+import org.springframework.ai.rag.advisor.RetrievalAugmentationAdvisor;
+import org.springframework.ai.rag.retrieval.search.VectorStoreDocumentRetriever;
+import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
 
-import java.util.LinkedList;
 import java.util.List;
 
 /**
@@ -38,8 +39,7 @@ public class ChatClientConfig {
      * Builder 是 prototype，每个注入点一份新实例，可分别设 defaultOptions / defaultSystem。
      * {@code @Primary} 避免出现两个 ChatClient 时无法唯一注入。
      */
-    @Bean
-    @Primary
+    @Bean("ollamaChatClient")
     public ChatClient ollamaChatClient(ChatClient.Builder chatClientBuilder, List<BaseAdvisor> advisors,
                                        ChatMemory messageMysqlChatMemory) {
         MessageChatMemoryAdvisor memoryAdvisor = MessageChatMemoryAdvisor.builder(messageMysqlChatMemory).order(0).build();
@@ -49,6 +49,25 @@ public class ChatClientConfig {
                 .defaultAdvisors(memoryAdvisor)
                 .defaultOptions(defaultOllamaOptions())
                 .build();
+    }
+
+
+    @Bean("ragChatClient")
+    public ChatClient ragChatClient(ChatClient.Builder chatClientBuilder, VectorStore vectorStore) {
+        VectorStoreDocumentRetriever documentRetriever = VectorStoreDocumentRetriever.builder()
+                .vectorStore(vectorStore)
+                .topK(3)
+                .similarityThreshold(0.8)
+                .build();
+        RetrievalAugmentationAdvisor retrievalAugmentationAdvisor = RetrievalAugmentationAdvisor.builder()
+                .documentRetriever(documentRetriever)
+                .build();
+        return chatClientBuilder.defaultAdvisors(retrievalAugmentationAdvisor).build();
+    }
+
+    @Bean("toolChatClient")
+    public ChatClient toolChatClient(ChatClient.Builder chatClientBuilder) {
+        return chatClientBuilder.defaultTools(new TimeTools()).build();
     }
 
     /**

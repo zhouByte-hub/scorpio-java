@@ -16,11 +16,11 @@ import reactor.core.publisher.Flux;
 public class ChatServiceImpl implements ChatService {
 
     @Resource
-    private ChatClient chatClient;
+    private ChatClient ollamaChatClient;
 
     @Override
     public String chat(String message) {
-        String content = chatClient.prompt()
+        String content = ollamaChatClient.prompt()
                 .user(requireMessage(message))
                 .call()
                 .content();
@@ -29,7 +29,7 @@ public class ChatServiceImpl implements ChatService {
 
     @Override
     public Flux<String> stream(String message, String conversationId) {
-        return chatClient.prompt()
+        return ollamaChatClient.prompt()
                 .user(requireMessage(message))
                 .advisors(spec -> spec.param("chat_memory_conversation_id", conversationId))
                 .stream()
