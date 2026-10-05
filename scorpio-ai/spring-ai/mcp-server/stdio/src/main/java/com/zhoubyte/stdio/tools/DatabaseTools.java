@@ -1,8 +1,8 @@
 package com.zhoubyte.stdio.tools;
 
 import com.zhoubyte.stdio.dto.DbQueryResult;
-import org.springframework.ai.tool.annotation.Tool;
-import org.springframework.ai.tool.annotation.ToolParam;
+import org.springframework.ai.mcp.annotation.McpTool;
+import org.springframework.ai.mcp.annotation.McpToolParam;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -14,8 +14,8 @@ import java.util.Map;
 @Component
 public class DatabaseTools {
 
-    @Tool(name = "query_database", description = "在数据库中执行只读查询，返回查询结果和行数。")
-    public DbQueryResult queryDatabase(@ToolParam(description = "需要执行的Query SQL") String sql) {
+    @McpTool(name = "query_database", description = "在数据库中执行只读查询，返回查询结果和行数。")
+    public DbQueryResult queryDatabase(@McpToolParam(description = "需要执行的Query SQL") String sql) {
         if (sql == null || sql.isBlank()) {
             throw new IllegalArgumentException("sql 不能为空");
         }

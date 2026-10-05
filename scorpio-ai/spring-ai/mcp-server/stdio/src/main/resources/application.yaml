@@ -11,3 +11,7 @@ spring:
         type: sync
         version: 1.0.0
         name: stdio-mcp
+
+logging:
+  file:
+    path: /Users/zhoubyte/project/tmp/stdio

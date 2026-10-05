@@ -1,15 +1,15 @@
 package com.zhoubyte.stdio.tools;
 
 import com.zhoubyte.stdio.dto.WeatherResult;
-import org.springframework.ai.tool.annotation.Tool;
-import org.springframework.ai.tool.annotation.ToolParam;
+import org.springframework.ai.mcp.annotation.McpTool;
+import org.springframework.ai.mcp.annotation.McpToolParam;
 import org.springframework.stereotype.Component;
 
 @Component
 public class WeatherTools {
 
-    @Tool(name = "get_weather", description = "查询指定城市的天气信息，返回城市、天气、温度和单位。")
-    public WeatherResult getWeather(@ToolParam(description = "城市名称，默认城市为深圳市") String city) {
+    @McpTool(name = "get_weather", description = "查询指定城市的天气信息，返回城市、天气、温度和单位。")
+    public WeatherResult getWeather(@McpToolParam(description = "城市名称，默认城市为深圳市") String city) {
         if (city == null || city.isBlank()) {
             throw new IllegalArgumentException("city 不能为空");
         }
