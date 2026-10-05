@@ -13,5 +13,7 @@ spring:
         name: stdio-mcp
 
 logging:
+  pattern:
+    console: ""
   file:
     path: /Users/zhoubyte/project/tmp/stdio
