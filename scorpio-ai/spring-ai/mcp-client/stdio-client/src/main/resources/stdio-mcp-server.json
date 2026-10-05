@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "demo-server": {
+      "command": "java",
+      "args": [
+        "-Dspring.ai.mcp.server.stdio=true",
+        "-Dspring.main.web-application-type=none",
+        "-Dlogging.pattern.console=",
+        "-jar",
+        "/absolute/path/mcp-stdio-server.jar"
+      ]
+    }
+  }
+}

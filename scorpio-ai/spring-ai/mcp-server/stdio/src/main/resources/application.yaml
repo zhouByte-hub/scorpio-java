@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: stdio
+  main:
+    banner-mode: off
+    web-application-type: none
+  ai:
+    mcp:
+      server:
+        stdio: true
+        type: sync
+        version: 1.0.0
+        name: stdio-mcp
