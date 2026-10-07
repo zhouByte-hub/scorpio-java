@@ -1,0 +1,27 @@
+server:
+  port: 8084
+  servlet:
+    context-path: /stream-client
+spring:
+  application:
+    name: stream-client
+  ai:
+    mcp:
+      client:
+        enabled: true
+        name: stream-mcp-client
+        version: 1.0.0
+        request-timeout: 20s
+        type: sync
+        toolcallback:
+          # 自动把MCP的Tool注册给Spring AI ChatClient，直接Agent调用
+          enabled: true
+        # Streamable HTTP 连接（替代已弃用的 sse.connections 配置）
+        streamable-http:
+          connections:
+            stream-server: # 自定义名称，可以配置多个MCP Server
+              url: http://localhost:8083
+    ollama:
+      base-url: http://localhost:11434
+      chat:
+        model: qwen2.5:3b-instruct

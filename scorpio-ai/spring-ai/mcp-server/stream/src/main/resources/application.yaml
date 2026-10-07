@@ -1,0 +1,21 @@
+server:
+  port: 8083
+spring:
+  application:
+    name: stream
+  main:
+    banner-mode: off
+  ai:
+    mcp:
+      server:
+        name: stream-mcp
+        version: 1.0.0
+        type: sync
+        # Streamable HTTP 协议（Spring AI 2.0 起为默认协议，替代已弃用的 SSE 双端点方案）
+        protocol: streamable
+        streamable-http:
+          # 单一端点同时承载 POST 请求与可选 SSE 流
+          mcp-endpoint: /mcp
+logging:
+  file:
+    path: /Users/zhoubyte/project/tmp/stream
