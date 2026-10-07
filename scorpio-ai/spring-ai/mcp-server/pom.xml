@@ -21,6 +21,7 @@
 
     <modules>
         <module>stdio</module>
+        <module>sse</module>
     </modules>
 
     <build>

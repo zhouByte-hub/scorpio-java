@@ -19,6 +19,11 @@
         <java.version>21</java.version>
     </properties>
 
+    <modules>
+        <module>stdio-client</module>
+        <module>sse-client</module>
+    </modules>
+
     <build>
         <plugins>
             <plugin>

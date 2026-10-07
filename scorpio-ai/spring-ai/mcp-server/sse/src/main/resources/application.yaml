@@ -1,3 +1,17 @@
+server:
+  port: 8081
 spring:
   application:
     name: sse
+  main:
+    banner-mode: off
+  ai:
+    mcp:
+      server:
+        name: sse-mcp
+        version: 1.0.0
+        type: sync
+        protocol: sse
+logging:
+  file:
+    path: /Users/zhoubyte/project/tmp/sse

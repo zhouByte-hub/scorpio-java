@@ -1,4 +1,4 @@
-package com.zhoubyte.stdioclient.controller;
+package com.zhoubyte.sseclient.controller;
 
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.spec.McpSchema;
@@ -62,7 +62,7 @@ public class McpController {
     private McpSyncClient mcpClient() {
         List<McpSyncClient> clients = mcpSyncClients.getObject();
         if (clients.isEmpty()) {
-            throw new IllegalStateException("没有可用的 MCP Sync Client，请检查 stdio 连接配置");
+            throw new IllegalStateException("没有可用的 MCP Sync Client，请检查 sse 连接配置");
         }
         return clients.getFirst();
     }
