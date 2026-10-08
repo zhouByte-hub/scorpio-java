@@ -1,3 +1,17 @@
+server:
+  port: 8092
+
 spring:
   application:
     name: alibaba-mcp-server
+  ai:
+    mcp:
+      server:
+        name: alibaba-ecommerce-mcp
+        version: 1.0.0
+        # sync：同步服务端（基于 Servlet 栈）
+        type: sync
+        # Streamable HTTP：单一 /mcp 端点承载 POST 与可选 SSE 流，替代已弃用的 SSE 双端点方案
+        protocol: streamable
+        streamable-http:
+          mcp-endpoint: /mcp

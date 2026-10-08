@@ -1,3 +1,28 @@
+server:
+  port: 8093
+  servlet:
+    context-path: /alibaba-mcp-client
+
 spring:
   application:
     name: alibaba-mcp-client
+  ai:
+    mcp:
+      client:
+        enabled: true
+        name: alibaba-mcp-client
+        version: 1.0.0
+        request-timeout: 20s
+        type: sync
+        toolcallback:
+          # 自动把 MCP Server 的 Tool 注册为 Spring AI ToolCallbackProvider，供 ChatClient 调用
+          enabled: true
+        # Streamable HTTP 连接（替代已弃用的 sse.connections 配置）
+        streamable-http:
+          connections:
+            alibaba-ecommerce-server: # 自定义连接名，可配置多个 MCP Server
+              url: http://localhost:8092
+    ollama:
+      base-url: http://localhost:11434
+      chat:
+        model: qwen2.5:3b-instruct

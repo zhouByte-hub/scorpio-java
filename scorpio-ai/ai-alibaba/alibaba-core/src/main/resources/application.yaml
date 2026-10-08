@@ -1,3 +1,29 @@
+server:
+  port: 8090
+  servlet:
+    context-path: /alibaba-core
+
 spring:
   application:
     name: alibaba-core
+  data:
+    redis:
+      # 会话记忆持久化到 Redis（与项目其他模块使用同一实例）
+      host: localhost
+      port: 16379
+      password: 123456
+      database: 0
+      connect-timeout: 5000
+  ai:
+    ollama:
+      # 本地 Ollama 服务地址，需先执行：ollama serve
+      base-url: http://localhost:11434
+      chat:
+        # 对话模型：ollama pull qwen2.5:3b-instruct
+        model: qwen2.5:3b-instruct
+        options:
+          # 采样温度：越低回答越确定，越高越发散
+          temperature: 0.7
+      embedding:
+        # 向量化模型：ollama pull nomic-embed-text
+        model: nomic-embed-text
