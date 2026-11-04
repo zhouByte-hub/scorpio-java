@@ -1,0 +1,65 @@
+# OTel Collector：统一接收 → 过滤 → 尾部采样 → 批量 → 导出 Langfuse
+# LANGFUSE_BASIC_AUTH 为 base64("pk-lf-xxx:sk-lf-xxx")，由 docker-compose .env 注入。
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 75
+    spike_limit_percentage: 20
+
+  # 过滤噪声：健康检查等无分析价值的 Trace 直接丢弃
+  filter/drop_noise:
+    traces:
+      span:
+        - 'attributes["url.path"] == "/actuator/health"'
+        - 'attributes["url.path"] == "/actuator/health/liveness"'
+        - 'attributes["url.path"] == "/actuator/health/readiness"'
+        - 'IsMatch(name, "(?i).*(health|readiness|liveness).*")'
+
+  # 尾部采样：错误 Trace 与慢 Trace（>3s）全保留，正常 Trace 抽样 50%
+  tail_sampling:
+    decision_wait: 5s
+    num_traces: 5000
+    expected_new_traces_per_sec: 100
+    policies:
+      - name: errors-policy
+        type: status_code
+        status_code:
+          status_codes: [ERROR]
+      - name: slow-traces-policy
+        type: latency
+        latency:
+          threshold_ms: 3000
+      - name: normal-sampling-policy
+        type: probabilistic
+        probabilistic:
+          sampling_percentage: 50
+
+  batch:
+    timeout: 3s
+    send_batch_size: 256
+
+exporters:
+  otlphttp/langfuse:
+    endpoint: http://langfuse-web:3000/api/public/otel
+    headers:
+      Authorization: "Basic ${env:LANGFUSE_BASIC_AUTH}"
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, filter/drop_noise, tail_sampling, batch]
+      exporters: [otlphttp/langfuse]

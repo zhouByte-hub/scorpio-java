@@ -1,0 +1,13 @@
+# DashScope（百炼 qwen）双通道配置：
+# 1. mvn -P dashscope 编译打包（引入 spring-ai-alibaba-starter-dashscope）
+# 2. export DASHSCOPE_API_KEY=sk-xxx
+# 3. java -jar ... --spring.profiles.active=dashscope
+spring:
+  ai:
+    model:
+      chat: dashscope
+    dashscope:
+      api-key: ${DASHSCOPE_API_KEY}
+      chat:
+        options:
+          model: qwen-plus

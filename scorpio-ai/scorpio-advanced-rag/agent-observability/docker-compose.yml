@@ -1,0 +1,128 @@
+name: agent-observability
+
+# Agent 可观测链路：应用(OTLP) → otel-collector(4317/4318) → Langfuse
+# 使用前：复制 .env.example 为 .env，并在 Langfuse UI(localhost:3000) 创建 API Key 后
+# 将 LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY 写回 .env，重启 collector 生效。
+
+services:
+  # ---------- Langfuse v3 存储依赖 ----------
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: langfuse
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24-alpine
+    environment:
+      CLICKHOUSE_USER: clickhouse
+      CLICKHOUSE_PASSWORD: clickhouse
+      CLICKHOUSE_DB: default
+    volumes:
+      - ch-data:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --user clickhouse --password clickhouse --query 'SELECT 1'"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio12345
+    volumes:
+      - minio-data:/data
+
+  redis:
+    image: redis:7-alpine
+
+  # ---------- Langfuse ----------
+  langfuse-web:
+    image: langfuse/langfuse:3
+    depends_on:
+      postgres:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      minio:
+        condition: service_started
+      redis:
+        condition: service_started
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/langfuse
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: observability-demo-nextauth-secret-change-me
+      SALT: observability-demo-salt-change-me
+      ENCRYPTION_KEY: "b6f4c1a9d0e83f275a4c6b9e1d2f8a03b7c5d9e2f4a6c8b0d3e5f7a9c1b2d4f6"
+      CLICKHOUSE_URL: http://clickhouse:8123
+      CLICKHOUSE_USER: clickhouse
+      CLICKHOUSE_PASSWORD: clickhouse
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://minio:9000
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: minio
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: minio12345
+      LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse
+      LANGFUSE_S3_EVENT_UPLOAD_REGION: auto
+      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: true
+      REDIS_CONNECTION_STRING: redis://redis:6379
+      LANGFUSE_OTEL_ENABLED: "true"
+      TELEMETRY_ENABLED: "false"
+
+  langfuse-worker:
+    image: langfuse/langfuse:3
+    depends_on:
+      postgres:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      minio:
+        condition: service_started
+      redis:
+        condition: service_started
+    environment:
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: observability-demo-nextauth-secret-change-me
+      SALT: observability-demo-salt-change-me
+      ENCRYPTION_KEY: "b6f4c1a9d0e83f275a4c6b9e1d2f8a03b7c5d9e2f4a6c8b0d3e5f7a9c1b2d4f6"
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/langfuse
+      CLICKHOUSE_URL: http://clickhouse:8123
+      CLICKHOUSE_USER: clickhouse
+      CLICKHOUSE_PASSWORD: clickhouse
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://minio:9000
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: minio
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: minio12345
+      LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse
+      LANGFUSE_S3_EVENT_UPLOAD_REGION: auto
+      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: true
+      REDIS_CONNECTION_STRING: redis://redis:6379
+      LANGFUSE_WORKER: "true"
+      TELEMETRY_ENABLED: "false"
+
+  # ---------- OTel Collector：统一接收、过滤、采样，再导出到 Langfuse ----------
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    depends_on:
+      - langfuse-web
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    environment:
+      LANGFUSE_BASIC_AUTH: ${LANGFUSE_BASIC_AUTH:-}
+
+volumes:
+  pg-data:
+  ch-data:
+  minio-data:

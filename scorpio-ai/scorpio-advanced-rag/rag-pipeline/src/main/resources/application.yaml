@@ -1,0 +1,50 @@
+server:
+  port: 8100
+  servlet:
+    context-path: /advanced-rag
+
+spring:
+  application:
+    name: rag-pipeline
+  data:
+    redis:
+      # RoaringBitmap 元数据位图持久化（与项目其他模块共用同一实例）
+      host: localhost
+      port: 16379
+      password: 123456
+      database: 0
+      connect-timeout: 5000
+  ai:
+    ollama:
+      # 本地 Ollama 服务：qwen2.5 做理解/生成/校验，nomic-embed-text 做稠密向量
+      base-url: http://localhost:11434
+      chat:
+        model: qwen2.5:3b-instruct
+        options:
+          temperature: 0.3
+      embedding:
+        model: nomic-embed-text
+
+scorpio:
+  rag:
+    index-name: rag_chunks
+    # 每路召回通道取回的候选数
+    channel-top-k: 20
+    # RRF 倒数排名融合平滑常数
+    rrf-k: 60
+    # LLM 重排后保留的上下文 chunk 数
+    rerank-top-n: 5
+    # LLM 重排相关性得分（0~10）低于该阈值的候选剔除
+    rerank-threshold: 5.0
+    # 稠密向量召回通道开关（口语化问句多时开启）
+    dense-enabled: true
+    # LLM 事实校验层开关
+    verify-enabled: true
+    embedding-dims: 768
+    es:
+      host: localhost
+      port: 9200
+
+logging:
+  level:
+    com.zhoubyte.rag.pipeline: info

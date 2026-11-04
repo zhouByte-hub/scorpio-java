@@ -1,0 +1,47 @@
+server:
+  port: 8110
+  servlet:
+    context-path: /agent-observability
+
+spring:
+  application:
+    name: agent-observability
+  ai:
+    # 类路径上存在多个 ChatModel 时用该属性选择；DashScope 双通道见 application-dashscope.yaml
+    model:
+      chat: ollama
+    ollama:
+      base-url: http://localhost:11434
+      chat:
+        model: qwen2.5:3b-instruct
+        options:
+          temperature: 0.3
+    chat:
+      observations:
+        # 将 Prompt / Completion / 错误信息写入 Span 属性，Langfuse 中可直接看到输入输出
+        include-prompt: true
+        include-completion: true
+        include-error-logging: true
+      client:
+        observations:
+          include-input: true
+    tools:
+      observations:
+        include-input: true
+
+management:
+  tracing:
+    sampling:
+      # 应用侧全量采样，真正的“过滤+抽样”策略收敛到 OTel Collector（tail_sampling）
+      probability: 1.0
+  otlp:
+    tracing:
+      # 本地 OTel Collector；Langfuse 的 Basic Auth 只配在 Collector 侧，应用零密钥
+      endpoint: http://localhost:4318/v1/traces
+  observations:
+    annotations:
+      enabled: true
+
+logging:
+  level:
+    com.zhoubyte.rag.observability: info
