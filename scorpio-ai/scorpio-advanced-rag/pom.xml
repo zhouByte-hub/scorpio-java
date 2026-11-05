@@ -17,6 +17,7 @@
     <modules>
         <module>rag-pipeline</module>
         <module>agent-observability</module>
+        <module>rag-ingestion</module>
     </modules>
 
     <properties>

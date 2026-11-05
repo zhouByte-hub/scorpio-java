@@ -1,0 +1,44 @@
+server:
+  port: 8120
+  servlet:
+    context-path: /rag-ingestion
+
+spring:
+  application:
+    name: rag-ingestion
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+  ai:
+    ollama:
+      # 本地 Ollama：nomic-embed-text 做稠密向量，视觉模型见 scorpio.ingestion.vlm-model
+      base-url: http://localhost:11434
+      chat:
+        model: qwen2.5:3b-instruct
+        options:
+          temperature: 0.2
+      embedding:
+        model: nomic-embed-text
+
+scorpio:
+  ingestion:
+    index-name: rag_ingestion_chunks
+    # TEXT 块递归分割的目标块长（字符）与相邻块重叠
+    chunk-size: 500
+    overlap: 50
+    # 表格块的最大保留字符数（超出截断，避免单表撑爆上下文）
+    max-table-chars: 6000
+    # 视觉模型：图片内容描述（ollama pull qwen2.5vl:3b）
+    vlm-model: qwen2.5vl:3b
+    # Docling 服务地址（docker compose up docling-serve），不可用时自动降级 PDFBox
+    docling-base-url: http://localhost:5001
+    docling-timeout-seconds: 120
+    embedding-dims: 768
+    es:
+      host: localhost
+      port: 9200
+
+logging:
+  level:
+    com.zhoubyte.rag.ingestion: info

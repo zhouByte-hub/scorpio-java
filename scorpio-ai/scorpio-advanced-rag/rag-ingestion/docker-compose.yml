@@ -1,0 +1,9 @@
+services:
+  # Docling 文档解析服务：复杂 PDF（表格/双栏/图文混排）转 Markdown 的市面成熟方案
+  # 首次启动会拉取较大镜像，启动后通过 http://localhost:5001 提供 /v1/convert 接口
+  docling-serve:
+    image: quay.io/docling-project/docling-serve:latest
+    container_name: docling-serve
+    ports:
+      - "5001:5001"
+    restart: unless-stopped
