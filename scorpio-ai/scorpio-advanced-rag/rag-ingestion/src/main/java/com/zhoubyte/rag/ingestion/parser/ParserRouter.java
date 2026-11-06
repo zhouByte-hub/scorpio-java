@@ -32,8 +32,7 @@ public class ParserRouter {
                 .filter(p -> p.supports(extension))
                 .toList();
         if (candidates.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "暂不支持的文件类型 ." + extension + "，支持：md/html/docx/xlsx/pptx/pdf/图片");
+            throw new IllegalArgumentException("暂不支持的文件类型 ." + extension + "，支持：md/html/docx/xlsx/pptx/pdf/图片");
         }
         Exception lastError = null;
         for (DocumentParser parser : candidates) {
@@ -45,8 +44,7 @@ public class ParserRouter {
                 lastError = new IllegalStateException(parser.getClass().getSimpleName() + " 解析结果为空");
             } catch (Exception e) {
                 lastError = e;
-                log.warn("解析器 {} 处理 {} 失败，尝试下一个候选：{}",
-                        parser.getClass().getSimpleName(), fileName, e.getMessage());
+                log.warn("解析器 {} 处理 {} 失败，尝试下一个候选：{}", parser.getClass().getSimpleName(), fileName, e.getMessage());
             }
         }
         throw new IllegalStateException("文件解析失败: " + fileName, lastError);
