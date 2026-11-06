@@ -1,0 +1,9 @@
+server:
+  port: 8090
+
+spring:
+  servlet:
+    multipart:
+      # 允许上传较大的文档用于解析测试
+      max-file-size: 50MB
+      max-request-size: 50MB

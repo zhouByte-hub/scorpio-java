@@ -16,6 +16,7 @@
         <module>scorpio-aspose</module>
         <module>scorpio-ai</module>
         <module>scorpio-mybatis-join</module>
+        <module>scorpio-doc-learning</module>
     </modules>
 
     <properties>

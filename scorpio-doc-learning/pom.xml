@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>4.1.0</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
+    <groupId>com.zhoubyte</groupId>
+    <artifactId>scorpio-doc-learning</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>scorpio-doc-learning</name>
+    <description>Apache POI-OOXML 与 PDFBox 学习模块</description>
+
+    <properties>
+        <java.version>21</java.version>
+        <!-- 与 scorpio-ai/scorpio-advanced-rag/rag-ingestion 保持一致的版本 -->
+        <poi.version>5.3.0</poi.version>
+        <pdfbox.version>2.0.31</pdfbox.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!--
+            POI-OOXML：处理 Office 2007+（.xlsx/.docx/.pptx）格式文档的完整依赖。
+            它会传递引入：
+              - poi            ：POI 核心包，含处理老格式 .xls 的 HSSF、公共模型接口
+              - poi-ooxml-lite ：XML Bean 的精简版（xmlbeans 生成的 OOXML schema 类）
+              - xmlbeans       ：OOXML 底层本质是一堆 XML，XMLBean 负责 Java 对象与 XML 的映射
+              - commons-compress 等：解压 OOXML 包（OOXML 本质是 zip 包）
+            如果只需要 .docx/.xlsx 中的一类，也可以细分为 poi-ooxml 下的独立包（5.x 已合并）。
+        -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>${poi.version}</version>
+        </dependency>
+
+        <!--
+            PDFBox：Apache 出品的 PDF 处理库，用于创建、解析、渲染、加密 PDF。
+            核心包 pdfbox 已包含文本提取、页面渲染（PDFRenderer）、表单等能力。
+            注意：PDFBox 3.x 的 API 有较大变动（如 Loader 取代 PDDocument.load），
+            这里使用 2.x 系列最后一个稳定版 2.0.31，学习资料多为 2.x API。
+        -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>${pdfbox.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
